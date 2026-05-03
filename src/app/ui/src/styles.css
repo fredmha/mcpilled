@@ -1,0 +1,476 @@
+:root {
+  font-family: "Satoshi", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%); overflow: hidden; }
+button, input, textarea, select { font: inherit; }
+button {
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+button:hover { border-color: #7c3aed; color: #7c3aed; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+.primary { background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%); border: 0; color: #ffffff; font-weight: 800; }
+.primary:hover { color: #ffffff; filter: brightness(.97); }
+
+.appShell { width: 100vw; min-height: 100vh; height: 100dvh; display: flex; overflow: hidden; }
+.sidebar {
+  width: 260px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.brand { display: flex; align-items: center; gap: 14px; padding: 0 8px; }
+.brandIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #7c3aed 0%, #14b8a6 100%);
+}
+.brand strong, .brand span { display: block; }
+.brand strong { font-size: 17px; }
+.brand span { color: #94a3b8; font-size: 12px; margin-top: 2px; }
+.navList { display: grid; gap: 8px; }
+.navItem {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 46px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-weight: 700;
+}
+.navItem.active { background: linear-gradient(135deg, rgba(124, 58, 237, .1) 0%, rgba(99, 102, 241, .08) 100%); color: #7c3aed; }
+.navItem em {
+  margin-left: auto;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 12px;
+  background: #f97316;
+  color: #ffffff;
+}
+
+.workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.topBar {
+  min-height: 86px;
+  background: rgba(255, 255, 255, .92);
+  border-bottom: 1px solid #e2e8f0;
+  padding: 16px 26px;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(420px, 1.5fr) auto;
+  gap: 18px;
+  align-items: center;
+}
+.endpoint { min-width: 0; display: grid; gap: 5px; }
+.endpoint span { color: #94a3b8; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.endpoint strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.endpoint.large strong { font-size: 18px; }
+.statRail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.statCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.statCard span { color: #64748b; font-size: 11px; font-weight: 700; }
+.statCard strong { font-size: 22px; }
+.statCard.purple { border-color: rgba(124, 58, 237, .28); }
+.statCard.blue { border-color: rgba(37, 99, 235, .28); }
+.statCard.orange { border-color: rgba(249, 115, 22, .34); }
+.statCard.teal { border-color: rgba(20, 184, 166, .34); }
+.topActions { display: flex; gap: 8px; align-items: center; }
+.notice { padding: 9px 12px; border-radius: 8px; color: #ffffff; background: #0f172a; font-size: 13px; white-space: nowrap; }
+
+.pageStack, .activityGrid, .installPage {
+  flex: 1;
+  overflow: auto;
+  padding: 30px;
+}
+.pageStack { display: flex; flex-direction: column; gap: 20px; }
+.pageHeader { display: flex; justify-content: space-between; gap: 18px; align-items: center; }
+h1, h2, h3, p { margin: 0; letter-spacing: 0; }
+h1 { font-size: 28px; line-height: 1.2; }
+h2 { font-size: 18px; }
+h3 { font-size: 14px; }
+.pageHeader p, .accessBlock p, .drawer p { color: #64748b; margin-top: 8px; font-size: 14px; }
+
+.serverCard, .teamCard, .approvalCard, .panel, .installCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+}
+.serverSummary, .teamHeader {
+  width: 100%;
+  min-height: 92px;
+  border: 0;
+  border-radius: 8px;
+  padding: 22px;
+  justify-content: space-between;
+  color: inherit;
+  background: transparent;
+}
+.serverSummary:hover, .teamHeader:hover { background: #f8fafc; color: inherit; }
+.serverIdentity, .serverMeta, .titleRow, .teamHeader, .teamPolicyTop, .teamExpand, .requestTop, .approvalHeader {
+  display: flex;
+  align-items: center;
+}
+.serverIdentity { gap: 18px; min-width: 0; text-align: left; }
+.serverIcon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  border: 2px solid;
+  display: grid;
+  place-items: center;
+  background: #f8fafc;
+}
+.titleRow { gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.serverMeta { gap: 22px; flex-wrap: wrap; justify-content: flex-end; }
+.metricNumber { text-align: right; display: grid; gap: 0; }
+.metricNumber strong { font-size: 24px; }
+.metricNumber span { color: #94a3b8; font-size: 12px; font-weight: 700; }
+.serverDetails {
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+.serverActions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.serverActions span { margin-left: auto; color: #64748b; font-size: 12px; font-weight: 800; }
+.accessBlock, .toolBlock {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 18px;
+}
+.accessBlock { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.accessBlock.vertical { display: grid; align-items: start; }
+.teamPolicyList { display: grid; gap: 10px; }
+.teamPolicy { background: #f8fafc; border-radius: 8px; padding: 10px; }
+.teamPolicyTop { justify-content: space-between; gap: 14px; }
+.teamExpand { border: 0; background: transparent; justify-content: flex-start; padding: 0 4px; color: #334155; }
+.teamExpand span { color: #94a3b8; font-size: 12px; }
+.memberPolicies { margin: 10px 0 0 22px; display: grid; gap: 8px; }
+.memberPolicy { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; }
+.toolBlock { display: grid; gap: 12px; }
+.toolChips { display: flex; gap: 8px; flex-wrap: wrap; }
+.toolChip, .policyPill, .statusBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.toolChip { border: 1px solid #e2e8f0; background: #f8fafc; font-family: Consolas, "SFMono-Regular", monospace; color: #475569; }
+.policyPill { border: 1px solid; white-space: nowrap; }
+.statusBadge { text-transform: uppercase; letter-spacing: .02em; background: #f1f5f9; color: #64748b; }
+.statusBadge.connected, .statusBadge.success, .statusBadge.approved { background: rgba(20, 184, 166, .12); color: #0f766e; }
+.statusBadge.pending { background: rgba(249, 115, 22, .12); color: #c2410c; }
+.statusBadge.denied, .statusBadge.rejected, .statusBadge.error { background: rgba(239, 68, 68, .12); color: #b91c1c; }
+.policySelect {
+  width: 150px;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #ffffff;
+  font-weight: 800;
+}
+.policySelect.allow { color: #0f766e; border-color: rgba(20, 184, 166, .42); }
+.policySelect.deny { color: #b91c1c; border-color: rgba(239, 68, 68, .42); }
+.policySelect.require_approval { color: #c2410c; border-color: rgba(249, 115, 22, .42); }
+.policySelect.inherit { color: #64748b; }
+
+.approvalCard { padding: 20px; display: grid; gap: 16px; }
+.approvalRequestCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+}
+.approvalHeader { justify-content: space-between; align-items: flex-start; gap: 16px; }
+.approvalRequestCard .approvalHeader {
+  padding: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.approvalHeader h2 { font-size: 16px; margin-bottom: 6px; }
+.approvalHeader p, .summary, .requestedTool span, .requestedTool small { color: #64748b; font-size: 13px; }
+.minutesBadge {
+  padding: 6px 12px;
+  background: #7c3aed;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.approvalContext {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  margin-top: -8px;
+  color: #475569;
+  font-size: 13px;
+}
+.approvalRequestCard .summary {
+  padding: 20px 24px 0;
+  color: #475569;
+}
+.requestedTitle {
+  padding: 20px 24px 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+.requestedTools { display: grid; gap: 10px; }
+.approvalRequestCard .requestedTools {
+  padding: 12px 24px 24px;
+}
+.requestedTool {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  transition: all .2s;
+}
+.requestedTool.approve {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, .05);
+}
+.requestedTool.deny {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, .05);
+}
+.requestedTool small {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(249, 115, 22, .1);
+  border: 1px solid rgba(249, 115, 22, .3);
+  border-radius: 6px;
+  color: #f97316;
+  font-weight: 700;
+}
+.toolDecisionButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+.toolDecisionButtons button {
+  font-weight: 800;
+}
+.toolDecisionButtons .approved {
+  background: #14b8a6;
+  border-color: #14b8a6;
+  color: #ffffff;
+}
+.toolDecisionButtons .denied {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+.approvalSubmit {
+  padding: 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: grid;
+  gap: 10px;
+}
+.approvalSubmit .primary {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 10px;
+}
+.approvalCard pre, .installCard pre {
+  margin: 0;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
+}
+.buttonRow { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.teamHeader { gap: 14px; justify-content: flex-start; }
+.teamHeader svg { margin-left: auto; }
+.avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  border: 2px solid;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  background: #f8fafc;
+}
+.avatar.small { width: 38px; height: 38px; border-radius: 50%; }
+.teamHeader span, .memberRow span, td small { color: #94a3b8; font-size: 12px; }
+.memberList { border-top: 1px solid #e2e8f0; padding: 18px 22px; display: grid; gap: 10px; background: #f8fafc; }
+.memberRow { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 12px; }
+.memberRow strong, .memberRow span { display: block; }
+
+.activityGrid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 20px; align-content: start; }
+.activityHeader { grid-column: 1 / -1; }
+.panel { padding: 20px; display: grid; gap: 16px; }
+.scenarioGrid { display: grid; gap: 10px; }
+.scenario {
+  min-height: 105px;
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  text-align: left;
+  padding: 14px;
+}
+.scenario strong, .scenario span, .scenario small { display: block; }
+.scenario span { color: #475569; font-size: 12px; }
+.scenario small { color: #64748b; font-size: 12px; line-height: 1.35; }
+.requestFeed { display: grid; gap: 12px; }
+.requestCard { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; display: grid; gap: 10px; }
+.requestTop { justify-content: space-between; }
+.requestCard p { color: #64748b; font-size: 13px; }
+.policyFlow { display: flex; flex-wrap: wrap; gap: 8px; }
+.auditPanel { grid-column: 1 / -1; overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 11px; text-align: left; vertical-align: top; }
+th { color: #64748b; background: #f8fafc; font-size: 12px; }
+
+.policyMatrix {
+  display: grid;
+  grid-template-columns: minmax(190px, .8fr) minmax(150px, .45fr) minmax(280px, 1fr) minmax(260px, 1fr);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.policyHead, .policyCell { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 14px; }
+.policyHead { background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+.serverName { display: grid; align-content: start; gap: 4px; }
+.serverName span, .muted { color: #94a3b8; font-size: 12px; }
+.stackCell { display: grid; gap: 10px; }
+.inlinePolicy { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; align-items: center; }
+.inlinePolicy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.installCard { padding: 22px; display: grid; gap: 18px; }
+.drawerBackdrop { position: fixed; inset: 0; z-index: 20; background: rgba(15, 23, 42, .38); display: flex; justify-content: flex-end; }
+.drawer {
+  width: min(500px, 100%);
+  background: #ffffff;
+  padding: 24px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  box-shadow: -18px 0 38px rgba(15, 23, 42, .18);
+}
+.closeButton { justify-self: end; }
+.segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.segmented .selected { border-color: #7c3aed; background: rgba(124, 58, 237, .09); color: #7c3aed; }
+.field { display: grid; gap: 6px; }
+.field span { color: #475569; font-size: 12px; font-weight: 900; }
+input, textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+textarea { min-height: 100px; resize: vertical; }
+.wide { width: 100%; }
+
+.mono { font-family: Consolas, "SFMono-Regular", "Liberation Mono", monospace; overflow-wrap: anywhere; }
+.emptyState {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 34px;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.emptyState strong { color: #334155; }
+.loading { min-height: 100vh; display: grid; place-items: center; color: #64748b; }
+
+@media (max-width: 1180px) {
+  .topBar { grid-template-columns: 1fr; }
+  .topActions { justify-content: flex-start; flex-wrap: wrap; }
+  .statRail { grid-template-columns: repeat(4, minmax(120px, 1fr)); overflow-x: auto; padding-bottom: 2px; }
+  .activityGrid { grid-template-columns: 1fr; }
+  .policyMatrix { grid-template-columns: minmax(190px, 1fr); }
+  .policyHead { display: none; }
+}
+
+@media (max-width: 780px) {
+  body { overflow: auto; }
+  .appShell { display: block; height: auto; min-height: 100dvh; overflow: visible; }
+  .sidebar { width: 100%; padding: 16px; gap: 14px; position: sticky; top: 0; z-index: 5; }
+  .brand { justify-content: center; }
+  .navList { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .navItem { justify-content: center; min-height: 42px; padding: 0 8px; }
+  .navItem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .workspace { overflow: visible; min-height: 0; }
+  .topBar, .pageStack, .activityGrid, .installPage { padding: 16px; }
+  .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }
+  .serverSummary { justify-items: stretch; gap: 16px; }
+  .serverIdentity { grid-template-columns: auto minmax(0, 1fr); width: 100%; }
+  .serverMeta { justify-content: start; gap: 12px; }
+  .serverDetails { padding: 16px; }
+  .policySelect { width: 100%; }
+  .teamExpand { min-height: 32px; }
+  .memberPolicies { margin-left: 0; }
+  .toolDecisionButtons { grid-template-columns: 1fr; }
+  .inlinePolicy { grid-template-columns: 1fr; }
+  .installCard pre, .approvalCard pre { max-width: calc(100vw - 64px); }
+}
+
+@media (max-width: 460px) {
+  h1 { font-size: 23px; }
+  .sidebar { padding: 12px; }
+  .brand strong { font-size: 15px; }
+  .brandIcon { width: 38px; height: 38px; }
+  .navItem { font-size: 12px; }
+  .statRail { grid-template-columns: 1fr; }
+  .serverIcon { width: 42px; height: 42px; }
+  .serverIdentity { gap: 12px; }
+  .requestedTool, .approvalRequestCard .approvalHeader, .approvalSubmit { padding: 16px; }
+  .approvalRequestCard .requestedTools { padding: 12px 16px 16px; }
+  .approvalRequestCard .summary, .requestedTitle, .approvalContext { padding-left: 16px; padding-right: 16px; }
+}

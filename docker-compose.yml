@@ -1,0 +1,15 @@
+services:
+  mcp-gateway:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MCP_GATEWAY_HOST=0.0.0.0
+      - MCP_GATEWAY_PORT=3000
+      - MCP_GATEWAY_SECRET_KEY=${MCP_GATEWAY_SECRET_KEY}
+    volumes:
+      - gateway-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  gateway-data:
