@@ -50,7 +50,7 @@ function createDefaultConfig() {
   const config: GatewayConfig = {
     gateway: {
       host: process.env.MCP_GATEWAY_HOST ?? "0.0.0.0",
-      port: parsePort(process.env.MCP_GATEWAY_PORT ?? process.env.PORT, 3000),
+      port: parsePort(process.env.PORT ?? process.env.MCP_GATEWAY_PORT, 3000),
       advancedMode: false
     },
     spaces: [
@@ -159,7 +159,7 @@ function applyRuntimeGatewaySettings(config: GatewayConfig) {
     advancedMode: false
   };
   config.gateway.host = process.env.MCP_GATEWAY_HOST ?? config.gateway.host ?? "0.0.0.0";
-  const runtimePort = process.env.MCP_GATEWAY_PORT ?? process.env.PORT;
+  const runtimePort = process.env.PORT ?? process.env.MCP_GATEWAY_PORT;
   if (runtimePort) {
     config.gateway.port = parsePort(runtimePort, 3000);
   }
