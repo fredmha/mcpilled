@@ -50,7 +50,7 @@ function createDefaultConfig() {
   const config: GatewayConfig = {
     gateway: {
       host: process.env.MCP_GATEWAY_HOST ?? "0.0.0.0",
-      port: Number(process.env.MCP_GATEWAY_PORT ?? process.env.PORT ?? 3000),
+      port: parsePort(process.env.MCP_GATEWAY_PORT ?? process.env.PORT, 3000),
       advancedMode: false
     },
     spaces: [
@@ -161,11 +161,20 @@ function applyRuntimeGatewaySettings(config: GatewayConfig) {
   config.gateway.host = process.env.MCP_GATEWAY_HOST ?? config.gateway.host ?? "0.0.0.0";
   const runtimePort = process.env.MCP_GATEWAY_PORT ?? process.env.PORT;
   if (runtimePort) {
-    config.gateway.port = Number(runtimePort);
+    config.gateway.port = parsePort(runtimePort, 3000);
   }
-  if (!Number.isFinite(config.gateway.port)) {
+  if (!isValidPort(config.gateway.port)) {
     config.gateway.port = 3000;
   }
+}
+
+function parsePort(value: string | number | undefined, fallback: number) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return isValidPort(parsed) ? parsed : fallback;
+}
+
+function isValidPort(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 65535;
 }
 
 function ensureDemoConnector(space: Space, connector: StoredConnector) {

@@ -580,8 +580,10 @@ if (existsSync(publicDir)) {
   app.get(/.*/, (_req, res) => res.sendFile(join(publicDir, "index.html")));
 }
 
-app.listen(loaded.config.gateway.port, loaded.config.gateway.host, () => {
-  console.log(`MCP Gateway running at http://localhost:${loaded.config.gateway.port}`);
+const server = app.listen(loaded.config.gateway.port, loaded.config.gateway.host, () => {
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : loaded.config.gateway.port;
+  console.log(`MCP Gateway running at http://localhost:${port}`);
 });
 
 async function statePayload() {
