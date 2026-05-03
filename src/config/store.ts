@@ -100,7 +100,8 @@ function createDefaultConfig() {
 }
 
 function migrateConfig(config: GatewayConfig) {
-    for (const space of config.spaces) {
+  applyRuntimeGatewaySettings(config);
+  for (const space of config.spaces) {
     space.connectors ??= [];
     space.installProfiles ??= [createOwnerInstallProfile()];
     space.adminAgent ??= {
@@ -147,6 +148,22 @@ function migrateConfig(config: GatewayConfig) {
     });
   }
   return config;
+}
+
+function applyRuntimeGatewaySettings(config: GatewayConfig) {
+  config.gateway ??= {
+    host: "0.0.0.0",
+    port: 3000,
+    advancedMode: false
+  };
+  config.gateway.host = process.env.MCP_GATEWAY_HOST ?? config.gateway.host ?? "0.0.0.0";
+  const runtimePort = process.env.MCP_GATEWAY_PORT ?? process.env.PORT;
+  if (runtimePort) {
+    config.gateway.port = Number(runtimePort);
+  }
+  if (!Number.isFinite(config.gateway.port)) {
+    config.gateway.port = 3000;
+  }
 }
 
 function ensureDemoConnector(space: Space, connector: StoredConnector) {
