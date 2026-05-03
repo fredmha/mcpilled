@@ -6,3 +6,4 @@ data/*.jsonl
 .env
 server.log
 server.err.log
+*.log
