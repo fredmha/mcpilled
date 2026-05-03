@@ -40,7 +40,7 @@ export async function handleToolCall(config: GatewayConfig, toolName: string, ar
       { userId: actor.userId === "demo-user" ? "intern" : actor.userId, teamId: actor.teamId === "engineering" ? "interns" : actor.teamId },
       args,
       requestedTools,
-      ["workflow:client_portal.create:approval", "hubspot:sensitive:deny", "prod_db:sensitive:deny", "canva_ai:creative:approval"]
+      ["workflow:client_portal.create:approval", "hubspot:sensitive:deny", "supabase_db:sensitive:deny", "brand_assets:approved-context:allow"]
     );
     await logActivity({
       client,
@@ -53,7 +53,7 @@ export async function handleToolCall(config: GatewayConfig, toolName: string, ar
       detail: `Pending bundled approval ${approval.id}`
     });
     return {
-      content: [{ type: "text", text: `Approval required. Review bundled request ${approval.id}; only Canva AI should be approved for this demo.` }],
+      content: [{ type: "text", text: `Approval required. Review bundled request ${approval.id}; deny HubSpot and Supabase DB, approve Brand Kit MCP for this demo.` }],
       approval: { id: approval.id, status: approval.status, requestedTools }
     };
   }
@@ -144,14 +144,11 @@ async function executeLocalTool(config: GatewayConfig, toolName: string, args: R
   if (toolName.startsWith("gmail.")) {
     return executeGmailTool(toolName, args);
   }
-  if (toolName.startsWith("canva_ai.")) {
-    return executeCanvaAiTool(config, toolName, args);
-  }
   if (toolName.startsWith("hubspot.")) {
     return executeHubSpotTool(toolName, args);
   }
-  if (toolName.startsWith("prod_db.")) {
-    return executeProdDbTool(toolName, args);
+  if (toolName.startsWith("supabase_db.")) {
+    return executeSupabaseDbTool(toolName, args);
   }
   const connectorId = toolName.split(".")[0];
   const connector = config.spaces[0].connectors.find((candidate) => candidate.id === connectorId);
@@ -174,20 +171,12 @@ export function clientPortalRequestedTools(args: Record<string, unknown>) {
       input: { query: clientName, properties: ["contacts", "companies", "deals"] }
     },
     {
-      server: "prod_db",
-      tool: "prod_db.query",
-      reason: `Query production usage and billing data for ${clientName}.`,
-      flagReason: "Production database contains customer-sensitive data.",
+      server: "supabase_db",
+      tool: "supabase_db.query",
+      reason: `Query Supabase production usage and billing data for ${clientName}.`,
+      flagReason: "Supabase production database contains customer-sensitive data.",
       currentPolicy: "deny" as const,
       input: { sql: "select * from customer_portal_context where client_name = $1", params: [clientName] }
-    },
-    {
-      server: "canva_ai",
-      tool: "canva_ai.create_client_portal_asset",
-      reason: `Generate safe branded portal creative for: ${portalGoal}`,
-      flagReason: "Creative generation does not require customer-sensitive source data.",
-      currentPolicy: "require_approval" as const,
-      input: { clientName, portalGoal, assetType: "client_portal_mockup" }
     },
     {
       server: "brand_assets",
@@ -392,29 +381,6 @@ function textResult(text: string) {
   return { content: [{ type: "text", text }] };
 }
 
-async function executeCanvaAiTool(config: GatewayConfig, toolName: string, args: Record<string, unknown>) {
-  if (toolName !== "canva_ai.create_client_portal_asset") {
-    throw new Error(`Unsupported Canva AI action: ${toolName}`);
-  }
-  const connector = config.spaces[0].connectors.find((candidate) => candidate.id === "canva_ai");
-  if (connector?.mcpServer && !connector.mcpServer.url?.startsWith("mock://")) {
-    return callDownstreamTool(connector.mcpServer, toolName, args);
-  }
-  const clientName = typeof args.clientName === "string" ? args.clientName : "Acme Health";
-  const slug = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "client";
-  return textResult(JSON.stringify({
-    source: "mock-canva-ai-mcp",
-    action: "create_client_portal_asset",
-    design: {
-      id: `canva_${slug}_portal_demo`,
-      title: `${clientName} Client Portal Concept`,
-      url: `https://canva.example/design/${slug}-client-portal`,
-      assetType: typeof args.assetType === "string" ? args.assetType : "client_portal_mockup",
-      status: "created"
-    }
-  }, null, 2));
-}
-
 async function executeHubSpotTool(toolName: string, args: Record<string, unknown>) {
   if (toolName !== "hubspot.search_contacts") {
     throw new Error(`Unsupported HubSpot action: ${toolName}`);
@@ -427,15 +393,15 @@ async function executeHubSpotTool(toolName: string, args: Record<string, unknown
   }, null, 2));
 }
 
-async function executeProdDbTool(toolName: string, args: Record<string, unknown>) {
-  if (toolName !== "prod_db.query") {
-    throw new Error(`Unsupported Prod DB action: ${toolName}`);
+async function executeSupabaseDbTool(toolName: string, args: Record<string, unknown>) {
+  if (toolName !== "supabase_db.query") {
+    throw new Error(`Unsupported Supabase DB action: ${toolName}`);
   }
   return textResult(JSON.stringify({
-    source: "mock-prod-db-mcp",
+    source: "mock-supabase-db-mcp",
     sql: typeof args.sql === "string" ? args.sql : "",
     blockedInDemo: true,
-    reason: "Production database contains customer-sensitive data."
+    reason: "Supabase production database contains customer-sensitive data."
   }, null, 2));
 }
 

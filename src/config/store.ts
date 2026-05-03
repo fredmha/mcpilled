@@ -96,7 +96,7 @@ function createDefaultConfig() {
       }
     ]
   };
-  return { config, apiKey };
+  return { config: migrateConfig(config), apiKey };
 }
 
 function migrateConfig(config: GatewayConfig) {
@@ -128,22 +128,13 @@ function migrateConfig(config: GatewayConfig) {
       mcpServer: { transport: "http", url: "mock://hubspot" }
     });
     ensureDemoConnector(space, {
-      id: "prod_db",
+      id: "supabase_db",
       enabled: true,
       status: "connected",
       toolCount: 1,
-      allowedTools: ["prod_db.query"],
-      displayNameOverride: "Production Database",
-      mcpServer: { transport: "http", url: "mock://prod-db" }
-    });
-    ensureDemoConnector(space, {
-      id: "canva_ai",
-      enabled: true,
-      status: "connected",
-      toolCount: 1,
-      allowedTools: ["canva_ai.create_client_portal_asset"],
-      displayNameOverride: "Canva AI",
-      mcpServer: { transport: "http", url: "mock://canva-ai" }
+      allowedTools: ["supabase_db.query"],
+      displayNameOverride: "Supabase Prod DB",
+      mcpServer: { transport: "http", url: "mock://supabase-db" }
     });
     ensureDemoConnector(space, {
       id: "brand_assets",

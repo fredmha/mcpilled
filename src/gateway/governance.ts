@@ -70,20 +70,12 @@ const defaultPolicies: PolicyRule[] = [
     reason: "Interns cannot access customer CRM data."
   },
   {
-    id: "team-interns-deny-prod-db",
+    id: "team-interns-deny-supabase-db",
     scope: "team",
     subjectId: "interns",
-    tool: "prod_db.query",
+    tool: "supabase_db.query",
     decision: "deny",
-    reason: "Interns cannot query production customer data."
-  },
-  {
-    id: "team-interns-approval-canva",
-    scope: "team",
-    subjectId: "interns",
-    tool: "canva_ai.create_client_portal_asset",
-    decision: "approval",
-    reason: "Canva AI can be approved for safe creative generation."
+    reason: "Interns cannot query Supabase production customer data."
   },
   {
     id: "team-interns-allow-brand-assets",
@@ -232,7 +224,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     createdAt: new Date().toISOString(),
     requestedServers: [...new Set(requestedTools.map((tool) => tool.server))],
     requestedTools,
-    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, prod DB, and Canva AI.`
+    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, Supabase prod DB, and the Brand Kit MCP.`
   };
   approvals.push(request);
   await writeApprovals(approvals);
@@ -244,7 +236,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     status: "pending",
     policyTrace: trace,
     approvalId: request.id,
-    reason: "Queued bundled approval for HubSpot, prod DB, and Canva AI."
+    reason: "Queued bundled approval for HubSpot, Supabase prod DB, and Brand Kit MCP."
   });
   return request;
 }

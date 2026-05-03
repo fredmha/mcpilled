@@ -8,7 +8,7 @@ const placeholders: ConnectorDefinition[] = [
   {
     id: "client_portal",
     displayName: "Client Portal Workflow",
-    description: "Lovable trigger that requests HubSpot, prod DB, and Canva AI access.",
+    description: "Lovable trigger that requests HubSpot, Supabase DB, and Brand Kit MCP access.",
     longDescription: "Client Portal Workflow is the demo entrypoint Lovable calls to create a governed client portal request.",
     authType: "custom",
     requiredFields: [],
@@ -16,20 +16,6 @@ const placeholders: ConnectorDefinition[] = [
       { id: "create", label: "Create client portal", safeByDefault: true, toolNames: ["client_portal.create"] }
     ],
     mcpServer: { transport: "http", url: "mock://client-portal" },
-    estimatedTools: 1,
-    available: true
-  },
-  {
-    id: "canva_ai",
-    displayName: "Canva AI",
-    description: "Generate approved client portal creative assets.",
-    longDescription: "Canva AI is the approved creative tool in the Lovable demo. Real Canva MCP can be configured later; the static demo uses a deterministic fallback.",
-    authType: "oauth_placeholder",
-    requiredFields: [],
-    permissionActions: [
-      { id: "create_client_portal_asset", label: "Create client portal asset", safeByDefault: false, toolNames: ["canva_ai.create_client_portal_asset"] }
-    ],
-    mcpServer: { transport: "http", url: "mock://canva-ai" },
     estimatedTools: 1,
     available: true
   },
@@ -90,13 +76,13 @@ const placeholders: ConnectorDefinition[] = [
     available: false
   },
   {
-    id: "prod_db",
-    displayName: "Prod DB",
-    description: "Query customer production data.",
-    longDescription: "Prod DB is intentionally sensitive in the demo and should be denied for interns.",
+    id: "supabase_db",
+    displayName: "Supabase Prod DB",
+    description: "Query customer production data in Supabase.",
+    longDescription: "Supabase Prod DB is intentionally sensitive in the demo and should be denied for interns.",
     authType: "token",
-    requiredFields: [{ key: "DATABASE_URL", label: "Database URL", type: "password", helpText: "Paste a local or private database URL." }],
-    permissionActions: [{ id: "read_queries", label: "Run read queries", safeByDefault: false, toolNames: ["prod_db.query"] }],
+    requiredFields: [{ key: "SUPABASE_DATABASE_URL", label: "Supabase Database URL", type: "password", helpText: "Paste a private Supabase database URL." }],
+    permissionActions: [{ id: "read_queries", label: "Run read queries", safeByDefault: false, toolNames: ["supabase_db.query"] }],
     mcpServer: { transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-postgres"], envMapping: { DATABASE_URL: "DATABASE_URL" } },
     estimatedTools: 3,
     available: true
