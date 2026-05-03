@@ -21,14 +21,16 @@ export function createInstallToken() {
 export async function loadConfig(): Promise<{ config: GatewayConfig; apiKey: string }> {
   if (isDatabaseEnabled()) {
     const existing = await readState<GatewayConfig>("gateway-config");
-    if (existing) {
-      const config = migrateConfig(existing);
-      await saveConfig(config);
-      return { config, apiKey: process.env.MCP_GATEWAY_API_KEY ?? "" };
+    if (isDatabaseEnabled()) {
+      if (existing) {
+        const config = migrateConfig(existing);
+        await saveConfig(config);
+        return { config, apiKey: process.env.MCP_GATEWAY_API_KEY ?? "" };
+      }
+      const created = createDefaultConfig();
+      await saveConfig(created.config);
+      return created;
     }
-    const created = createDefaultConfig();
-    await saveConfig(created.config);
-    return created;
   }
   await mkdir(dirname(configPath), { recursive: true });
   try {
