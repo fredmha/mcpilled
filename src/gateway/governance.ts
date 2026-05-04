@@ -241,6 +241,78 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
   return request;
 }
 
+export async function queueInstallApproval(input: {
+  installProfileId: string;
+  installProfileName: string;
+  tokenPreview: string;
+  clientName: string;
+  method: string;
+  existingApprovalId?: string;
+}) {
+  const approvals = await readApprovals();
+  const existing = input.existingApprovalId ? approvals.find((approval) => approval.id === input.existingApprovalId) : undefined;
+  if (existing && existing.status === "pending") {
+    return existing;
+  }
+  const request: ApprovalRequest = {
+    id: nanoid(),
+    userId: "install",
+    teamId: "security",
+    requester: input.installProfileName,
+    requesterName: `${input.clientName} MCP install`,
+    requesterTeam: "security",
+    source: input.clientName,
+    tool: "gateway.install",
+    input: {
+      installProfileId: input.installProfileId,
+      installProfileName: input.installProfileName,
+      tokenPreview: input.tokenPreview,
+      clientName: input.clientName,
+      firstMethod: input.method
+    },
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    requestedServers: ["hubspot", "supabase_db", "brand_assets"],
+    requestedTools: [
+      {
+        server: "hubspot",
+        tool: "hubspot.search_contacts",
+        reason: "Default Lovable install policy blocks CRM contact access.",
+        flagReason: "HubSpot contains customer CRM records and contact details.",
+        currentPolicy: "deny"
+      },
+      {
+        server: "supabase_db",
+        tool: "supabase_db.query",
+        reason: "Default Lovable install policy blocks production database access.",
+        flagReason: "Supabase production database contains customer-sensitive data.",
+        currentPolicy: "deny"
+      },
+      {
+        server: "brand_assets",
+        tool: "brand_assets.get_brand_kit",
+        reason: "Default Lovable install policy allows approved brand kit context.",
+        flagReason: "Brand assets are approved design context and do not expose customer records.",
+        currentPolicy: "allow"
+      }
+    ],
+    summary: `${input.clientName} connected to the MCP Gateway. Approve this install to let Lovable list and call permitted tools.`
+  };
+  approvals.push(request);
+  await writeApprovals(approvals);
+  await writeAudit({
+    user: "install",
+    team: "security",
+    tool: "gateway.install",
+    input: request.input,
+    status: "pending",
+    policyTrace: ["install:first-request", "install:approval-required"],
+    approvalId: request.id,
+    reason: "Queued install approval before exposing MCP tools."
+  });
+  return request;
+}
+
 export async function readApprovals() {
   try {
     return JSON.parse(await readFile(approvalsPath, "utf8")) as ApprovalRequest[];

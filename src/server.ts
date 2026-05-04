@@ -7,7 +7,7 @@ import { getSecret, saveConnectorCredentials, saveSecret } from "./config/secret
 import { addInstallProfile, createInstallToken, loadConfig, resetConfig, saveConfig, upsertConnector } from "./config/store.js";
 import { registerMcpEndpoint } from "./gateway/mcpEndpoint.js";
 import { readRecentActivity } from "./gateway/activityLogger.js";
-import { auditToolResult, capabilityIndex, readApprovals, readAudit, readPolicies, replacePolicies, resetGovernanceState, updateApproval } from "./gateway/governance.js";
+import { auditToolResult, capabilityIndex, queueInstallApproval, readApprovals, readAudit, readPolicies, replacePolicies, resetGovernanceState, updateApproval } from "./gateway/governance.js";
 import { listDownstreamTools, testDownstreamServer } from "./gateway/downstreamMcp.js";
 import { clientPortalRequestedTools, executeApprovedTool, handleToolCall } from "./gateway/toolRouter.js";
 import { hashApiKey, previewApiKey } from "./spaces/apiKeys.js";
@@ -309,6 +309,12 @@ app.post("/api/approvals/:id/reject", async (req, res) => {
     res.status(404).json({ ok: false, message: "Approval not found." });
     return;
   }
+  const installProfile = installProfileForApproval(approval.id);
+  if (installProfile) {
+    installProfile.approvalStatus = "rejected";
+    installProfile.rejectedAt = approval.decidedAt;
+    await saveConfig(loaded.config);
+  }
   await auditToolResult({ userId: approval.userId, teamId: approval.teamId }, approval.tool, approval.input, "rejected", ["approval:rejected"], undefined, approval.reason, approval.id);
   res.json({ ok: true, approval });
 });
@@ -321,6 +327,16 @@ app.post("/api/approvals/:id/approve", async (req, res) => {
   }
   if (existing.status !== "pending") {
     res.status(409).json({ ok: false, message: `Approval is already ${existing.status}.`, approval: existing });
+    return;
+  }
+  if (existing.tool === "gateway.install") {
+    const installProfile = installProfileForApproval(existing.id);
+    if (!installProfile) {
+      res.status(404).json({ ok: false, message: "Install profile not found for approval." });
+      return;
+    }
+    const approval = await activateInstallApproval(existing, typeof req.body.admin === "string" ? req.body.admin : "admin");
+    res.json({ ok: true, approval, result: { installProfileId: installProfile.id, status: installProfile.approvalStatus } });
     return;
   }
   try {
@@ -354,6 +370,29 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
   const missingDecision = requestedTools.find((tool) => !decisions[tool.tool]);
   if (missingDecision) {
     res.status(400).json({ ok: false, message: `Review ${missingDecision.tool} before submitting.` });
+    return;
+  }
+  if (existing.tool === "gateway.install") {
+    const installProfile = installProfileForApproval(existing.id);
+    if (!installProfile) {
+      res.status(404).json({ ok: false, message: "Install profile not found for approval." });
+      return;
+    }
+    const admin = typeof req.body.admin === "string" ? req.body.admin : "admin";
+    for (const tool of requestedTools) {
+      await auditToolResult(
+        { userId: existing.userId, teamId: existing.teamId },
+        tool.tool,
+        tool.input ?? existing.input,
+        decisions[tool.tool] === "approve" ? "success" : "denied",
+        [`install:${existing.id}:${decisions[tool.tool]}`],
+        undefined,
+        decisions[tool.tool] === "approve" ? "Approved during install review." : tool.flagReason,
+        existing.id
+      );
+    }
+    const approval = await activateInstallApproval(existing, admin, decisions);
+    res.json({ ok: true, approval, results: { installProfileId: installProfile.id, status: installProfile.approvalStatus }, controlRoom: await controlRoomPayload(req) });
     return;
   }
   const results: Record<string, unknown> = {};
@@ -563,6 +602,11 @@ app.post("/api/settings/regenerate-key", async (_req, res) => {
   const ownerProfile = loaded.config.spaces[0].installProfiles.find((profile) => profile.id === "owner") ?? loaded.config.spaces[0].installProfiles[0];
   ownerProfile.tokenHash = hashApiKey(ownerInstallToken);
   ownerProfile.tokenPreview = previewApiKey(ownerInstallToken);
+  ownerProfile.approvalStatus = undefined;
+  ownerProfile.approvalId = undefined;
+  ownerProfile.approvalQueuedAt = undefined;
+  ownerProfile.approvedAt = undefined;
+  ownerProfile.rejectedAt = undefined;
   await saveSecret(`install-profile:default:${ownerProfile.id}`, { token: ownerInstallToken });
   await saveConfig(loaded.config);
   res.json({ ok: true, installConfigs: await installConfigs(gatewayUrl(), ownerProfile.id) });
@@ -587,9 +631,38 @@ app.get("/api/export-config", async (_req, res) => {
 
 registerMcpEndpoint(app, () => loaded.config, {
   legacyToken: ownerInstallToken,
-  onInstallUsed: async (profile) => {
+  onInstallUsed: async (profile, req) => {
     profile.lastUsedAt = new Date().toISOString();
+    if (profile.approvalStatus === "active") {
+      await saveConfig(loaded.config);
+      return { allowed: true };
+    }
+    if (profile.approvalStatus === "rejected") {
+      await saveConfig(loaded.config);
+      return {
+        allowed: false,
+        approvalId: profile.approvalId,
+        message: "This MCP install was rejected by an admin."
+      };
+    }
+    const body = req.body as { method?: string };
+    const approval = await queueInstallApproval({
+      installProfileId: profile.id,
+      installProfileName: profile.name,
+      tokenPreview: profile.tokenPreview,
+      clientName: req.header("x-client-name") ?? "Lovable",
+      method: typeof body.method === "string" ? body.method : "unknown",
+      existingApprovalId: profile.approvalId
+    });
+    profile.approvalStatus = "pending";
+    profile.approvalId = approval.id;
+    profile.approvalQueuedAt ??= approval.createdAt;
     await saveConfig(loaded.config);
+    return {
+      allowed: false,
+      approvalId: approval.id,
+      message: `Install approval required. Review approval ${approval.id} in MCP Gateway, then retry the connection.`
+    };
   }
 });
 
@@ -871,6 +944,43 @@ function normalizeToolDecisions(value: unknown) {
     return {};
   }
   return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, "approve" | "deny"] => entry[1] === "approve" || entry[1] === "deny"));
+}
+
+function installProfileForApproval(approvalId: string) {
+  return loaded.config.spaces[0].installProfiles.find((profile) => profile.approvalId === approvalId);
+}
+
+async function activateInstallApproval(existing: ApprovalRequest, admin: string, decisions?: Record<string, "approve" | "deny">) {
+  const installProfile = installProfileForApproval(existing.id);
+  if (!installProfile) {
+    throw new Error("Install profile not found for approval.");
+  }
+  const decidedAt = new Date().toISOString();
+  installProfile.approvalStatus = "active";
+  installProfile.approvedAt = decidedAt;
+  await saveConfig(loaded.config);
+  const approval = await updateApproval(existing.id, {
+    status: "approved",
+    decidedAt,
+    decidedBy: admin,
+    toolDecisions: decisions,
+    result: {
+      installProfileId: installProfile.id,
+      status: "active",
+      message: "Install approved. Retry the MCP connection."
+    }
+  });
+  await auditToolResult(
+    { userId: existing.userId, teamId: existing.teamId },
+    existing.tool,
+    existing.input,
+    "success",
+    ["install:approved", "install:active"],
+    { installProfileId: installProfile.id, status: "active" },
+    "Install approved. MCP handshake is now allowed.",
+    existing.id
+  );
+  return approval;
 }
 
 function uiDecision(decision: PolicyDecision): Exclude<UiPolicyDecision, "inherit"> {

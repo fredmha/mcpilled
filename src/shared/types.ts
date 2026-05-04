@@ -58,6 +58,11 @@ export interface InstallProfile {
   allowedTools: string[];
   createdAt: string;
   lastUsedAt?: string;
+  approvalStatus?: "pending" | "active" | "rejected";
+  approvalId?: string;
+  approvalQueuedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
 }
 
 export interface AdminAgentSettings {
