@@ -74,6 +74,15 @@ interface ControlRoomPayload {
   mcpServers: ControlServer[];
   pendingApprovals: ControlApproval[];
   installConfigs: Record<string, string>;
+  installProfiles?: Array<{
+    id: string;
+    name: string;
+    tokenPreview: string;
+    approvalStatus: "not_started" | "pending" | "active" | "rejected";
+    approvalId?: string;
+    lastUsedAt?: string;
+    approvedAt?: string;
+  }>;
 }
 
 const navItems: Array<{ page: Page; label: string; icon: React.ReactNode }> = [
@@ -136,7 +145,7 @@ function App() {
         <TopBar data={data} notice={notice} refresh={refresh} copy={copy} />
         {page === "servers" && <ServersView data={data} refresh={refresh} openRegister={() => setRegisterOpen(true)} />}
         {page === "approvals" && <ApprovalsView approvals={data.pendingApprovals} reject={reject} submitToolDecisions={submitToolDecisions} />}
-        {page === "install" && <InstallView data={data} copy={copy} />}
+        {page === "install" && <InstallView data={data} copy={copy} refresh={refresh} />}
       </main>
       {registerOpen && <RegisterServerDrawer close={() => setRegisterOpen(false)} refresh={refresh} />}
     </div>
@@ -595,8 +604,16 @@ function PoliciesView({ data, refresh }: { data: ControlRoomPayload; refresh: ()
   );
 }
 
-function InstallView({ data, copy }: { data: ControlRoomPayload; copy: (value: string, label: string) => Promise<void> }) {
+function InstallView({ data, copy, refresh }: { data: ControlRoomPayload; copy: (value: string, label: string) => Promise<void>; refresh: () => Promise<void> }) {
   const config = data.installConfigs.universal ?? "";
+  const ownerInstall = data.installProfiles?.[0];
+
+  async function disconnectInstall() {
+    if (!ownerInstall) return;
+    await fetch(`/api/install-profiles/${ownerInstall.id}/disconnect`, { method: "POST" });
+    await refresh();
+  }
+
   return (
     <section className="installPage">
       <div className="pageHeader">
@@ -611,6 +628,16 @@ function InstallView({ data, copy }: { data: ControlRoomPayload; copy: (value: s
           <span>Gateway URL</span>
           <strong>{data.gatewayUrl}</strong>
         </div>
+        {ownerInstall && (
+          <div className="installStatus">
+            <div>
+              <span>Install approval</span>
+              <strong>{ownerInstall.approvalStatus.replace("_", " ")}</strong>
+              <small>{ownerInstall.approvalId ? `Approval ${ownerInstall.approvalId}` : `Token ${ownerInstall.tokenPreview}`}</small>
+            </div>
+            <button onClick={disconnectInstall}><RefreshCw size={16} />Disconnect / replay approval</button>
+          </div>
+        )}
         <pre>{config}</pre>
       </div>
     </section>

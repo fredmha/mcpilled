@@ -511,6 +511,33 @@ app.patch("/api/install-profiles/:id/permissions", async (req, res) => {
   res.json({ ok: true, profile, state: await statePayload() });
 });
 
+app.post("/api/install-profiles/:id/disconnect", async (req, res) => {
+  const profile = loaded.config.spaces[0].installProfiles.find((candidate) => candidate.id === req.params.id);
+  if (!profile) {
+    res.status(404).json({ ok: false, message: "Install profile not found." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const previousApprovalId = profile.approvalId;
+  profile.approvalStatus = undefined;
+  profile.approvalId = undefined;
+  profile.approvalQueuedAt = undefined;
+  profile.approvedAt = undefined;
+  profile.rejectedAt = undefined;
+  profile.lastUsedAt = undefined;
+  await saveConfig(loaded.config);
+  await auditToolResult(
+    { userId: "admin", teamId: "security" },
+    "gateway.install",
+    { installProfileId: profile.id, tokenPreview: profile.tokenPreview, previousApprovalId, disconnectedAt: now },
+    "rejected",
+    ["install:disconnected", "install:gate-reset"],
+    undefined,
+    "Install disconnected. Next MCP request will require approval again."
+  );
+  res.json({ ok: true, profile, state: await statePayload(req) });
+});
+
 app.post("/api/connectors/:id/test", async (req, res) => {
   const definition = getConnectorDefinition(req.params.id);
   if (!definition || !definition.available) {
@@ -743,7 +770,16 @@ async function controlRoomPayload(req?: Request) {
       policy: entry.policyTrace.join(" > "),
       action: entry.reason ?? auditAction(entry.status)
     })),
-    installConfigs: await installConfigs(gatewayUrl(req))
+    installConfigs: await installConfigs(gatewayUrl(req)),
+    installProfiles: loaded.config.spaces[0].installProfiles.map((profile) => ({
+      id: profile.id,
+      name: profile.name,
+      tokenPreview: profile.tokenPreview,
+      approvalStatus: profile.approvalStatus ?? "not_started",
+      approvalId: profile.approvalId,
+      lastUsedAt: profile.lastUsedAt,
+      approvedAt: profile.approvedAt
+    }))
   };
 }
 

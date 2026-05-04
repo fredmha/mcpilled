@@ -22,7 +22,7 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
     const body = req.body as { id?: string | number; method?: string; params?: Record<string, unknown> };
     const installGate = await options?.onInstallUsed?.(installProfile, req);
     if (installGate && !installGate.allowed) {
-      res.status(403).json({
+      res.status(200).json({
         jsonrpc: "2.0",
         id: body.id,
         error: {

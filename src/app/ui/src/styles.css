@@ -388,6 +388,20 @@ th { color: #64748b; background: #f8fafc; font-size: 12px; }
 .inlinePolicy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .installCard { padding: 22px; display: grid; gap: 18px; }
+.installStatus {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  background: #f8fafc;
+}
+.installStatus div { display: grid; gap: 4px; min-width: 0; }
+.installStatus span, .installStatus small { color: #64748b; font-size: 12px; font-weight: 800; }
+.installStatus strong { text-transform: capitalize; }
+.installStatus button { white-space: nowrap; }
 .drawerBackdrop { position: fixed; inset: 0; z-index: 20; background: rgba(15, 23, 42, .38); display: flex; justify-content: flex-end; }
 .drawer {
   width: min(500px, 100%);
@@ -448,7 +462,7 @@ textarea { min-height: 100px; resize: vertical; }
   .workspace { overflow: visible; min-height: 0; }
   .topBar, .pageStack, .activityGrid, .installPage { padding: 16px; }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }
+    .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext, .installStatus { display: grid; }
   .serverSummary { justify-items: stretch; gap: 16px; }
   .serverIdentity { grid-template-columns: auto minmax(0, 1fr); width: 100%; }
   .serverMeta { justify-content: start; gap: 12px; }
