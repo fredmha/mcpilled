@@ -12,6 +12,7 @@ import { listDownstreamTools, testDownstreamServer } from "./gateway/downstreamM
 import { clientPortalRequestedTools, executeApprovedTool, handleToolCall } from "./gateway/toolRouter.js";
 import { hashApiKey, previewApiKey } from "./spaces/apiKeys.js";
 import type { AgentMessage, ApprovalRequest, AuditLogEntry, InstallProfile, McpServerDefinition, PolicyDecision, PolicyRule, StoredConnector, ToolCapability } from "./shared/types.js";
+import type { Request } from "express";
 
 let loaded = await loadConfig();
 let ownerInstallToken = await ensureOwnerInstallToken();
@@ -19,29 +20,47 @@ let ownerInstallToken = await ensureOwnerInstallToken();
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-function gatewayUrl() {
+function gatewayUrl(req?: Request) {
   if (process.env.MCP_GATEWAY_PUBLIC_URL) {
     return `${process.env.MCP_GATEWAY_PUBLIC_URL.replace(/\/$/, "")}/mcp`;
+  }
+  const forwardedProto = req?.header("x-forwarded-proto");
+  const proto = forwardedProto ? forwardedProto.split(",")[0].trim() : undefined;
+  const forwardedHost = req?.header("x-forwarded-host");
+  const host = forwardedHost ? forwardedHost.split(",")[0].trim() : req?.header("host");
+  if (proto && host) {
+    return `${proto}://${host.replace(/\/$/, "")}/mcp`;
+  }
+  if (host) {
+    return `https://${host.replace(/\/$/, "")}/mcp`;
   }
   return `http://localhost:${loaded.config.gateway.port}/mcp`;
 }
 
-async function installConfigs(profileId = "owner") {
+async function installConfigs(mcpUrl: string, profileId = "owner") {
   const token = await getInstallToken(profileId);
-  const shared = {
+  const sharedAuthorization = {
     mcpServers: {
       "org-mcp": {
-        url: gatewayUrl(),
+        url: mcpUrl,
         headers: { Authorization: `Bearer ${token}` }
       }
     }
   };
+  const sharedApiKey = {
+    mcpServers: {
+      "org-mcp": {
+        url: mcpUrl,
+        headers: { "x-api-key": token }
+      }
+    }
+  };
   return {
-    universal: JSON.stringify(shared, null, 2),
-    lovable: JSON.stringify(shared, null, 2),
-    claude: JSON.stringify(shared, null, 2),
-    cursor: JSON.stringify(shared, null, 2),
-    codex: JSON.stringify(shared, null, 2)
+    universal: JSON.stringify(sharedAuthorization, null, 2),
+    lovable: JSON.stringify(sharedApiKey, null, 2),
+    claude: JSON.stringify(sharedAuthorization, null, 2),
+    cursor: JSON.stringify(sharedAuthorization, null, 2),
+    codex: JSON.stringify(sharedAuthorization, null, 2)
   };
 }
 
@@ -98,15 +117,15 @@ function mergedConnectors() {
   return [...defined, ...imported];
 }
 
-app.get("/api/state", async (_req, res) => {
+app.get("/api/state", async (req, res) => {
   res.json({
-    gatewayUrl: gatewayUrl(),
+    gatewayUrl: gatewayUrl(req),
     advancedMode: loaded.config.gateway.advancedMode,
     status: "Running",
     space: loaded.config.spaces[0],
     connectors: mergedConnectors(),
     activity: await readRecentActivity(),
-    installConfigs: await installConfigs(),
+    installConfigs: await installConfigs(gatewayUrl(req)),
     generatedAdvancedConfig: generatedAdvancedConfig()
   });
 });
@@ -216,13 +235,13 @@ app.get("/api/capabilities", (_req, res) => {
   res.json({ tools: capabilityIndex(loaded.config) });
 });
 
-app.get("/api/overview", async (_req, res) => {
+app.get("/api/overview", async (req, res) => {
   const approvals = await readApprovals();
   const audit = await readAudit(30);
   const tools = capabilityIndex(loaded.config);
   const pending = approvals.filter((approval) => approval.status === "pending");
   res.json({
-    gatewayUrl: gatewayUrl(),
+    gatewayUrl: gatewayUrl(req),
     servers: serverPayload(),
     tools,
     policies: await readPolicies(),
@@ -239,8 +258,8 @@ app.get("/api/overview", async (_req, res) => {
   });
 });
 
-app.get("/api/control-room", async (_req, res) => {
-  res.json(await controlRoomPayload());
+app.get("/api/control-room", async (req, res) => {
+  res.json(await controlRoomPayload(req));
 });
 
 app.patch("/api/control-room/servers/:id/access", async (req, res) => {
@@ -439,7 +458,7 @@ app.post("/api/install-profiles", async (req, res) => {
   const { profile, token } = addInstallProfile(loaded.config.spaces[0], name);
   await saveSecret(`install-profile:default:${profile.id}`, { token });
   await saveConfig(loaded.config);
-  res.json({ ok: true, profile, installConfigs: await installConfigs(profile.id), state: await statePayload() });
+  res.json({ ok: true, profile, installConfigs: await installConfigs(gatewayUrl(req), profile.id), state: await statePayload(req) });
 });
 
 app.patch("/api/install-profiles/:id/permissions", async (req, res) => {
@@ -546,7 +565,7 @@ app.post("/api/settings/regenerate-key", async (_req, res) => {
   ownerProfile.tokenPreview = previewApiKey(ownerInstallToken);
   await saveSecret(`install-profile:default:${ownerProfile.id}`, { token: ownerInstallToken });
   await saveConfig(loaded.config);
-  res.json({ ok: true, installConfigs: await installConfigs(ownerProfile.id) });
+  res.json({ ok: true, installConfigs: await installConfigs(gatewayUrl(), ownerProfile.id) });
 });
 
 app.patch("/api/settings", async (req, res) => {
@@ -586,25 +605,25 @@ const server = app.listen(loaded.config.gateway.port, loaded.config.gateway.host
   console.log(`MCP Gateway running at http://localhost:${port}`);
 });
 
-async function statePayload() {
+async function statePayload(req?: Request) {
   return {
-    gatewayUrl: gatewayUrl(),
+    gatewayUrl: gatewayUrl(req),
     advancedMode: loaded.config.gateway.advancedMode,
     status: "Running",
     space: loaded.config.spaces[0],
     connectors: mergedConnectors(),
     activity: await readRecentActivity(),
-    installConfigs: await installConfigs(),
+    installConfigs: await installConfigs(gatewayUrl(req)),
     generatedAdvancedConfig: generatedAdvancedConfig()
   };
 }
 
-async function overviewPayload() {
+async function overviewPayload(req?: Request) {
   const approvals = await readApprovals();
   const audit = await readAudit(30);
   const tools = capabilityIndex(loaded.config);
   return {
-    gatewayUrl: gatewayUrl(),
+    gatewayUrl: gatewayUrl(req),
     servers: serverPayload(),
     tools,
     policies: await readPolicies(),
@@ -621,7 +640,7 @@ async function overviewPayload() {
   };
 }
 
-async function controlRoomPayload() {
+async function controlRoomPayload(req?: Request) {
   const audit = await readAudit(50);
   const approvals = await readApprovals();
   const tools = capabilityIndex(loaded.config);
@@ -630,7 +649,7 @@ async function controlRoomPayload() {
   const servers = controlRoomServers(tools, policies, teams);
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
   return {
-    gatewayUrl: gatewayUrl(),
+    gatewayUrl: gatewayUrl(req),
     stats: {
       servers: servers.filter((server) => server.status === "connected").length,
       tools: tools.length,
@@ -651,7 +670,7 @@ async function controlRoomPayload() {
       policy: entry.policyTrace.join(" > "),
       action: entry.reason ?? auditAction(entry.status)
     })),
-    installConfigs: await installConfigs()
+    installConfigs: await installConfigs(gatewayUrl(req))
   };
 }
 
