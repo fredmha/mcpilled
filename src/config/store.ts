@@ -52,7 +52,7 @@ function createDefaultConfig() {
   const config: GatewayConfig = {
     gateway: {
       host: process.env.MCP_GATEWAY_HOST ?? "0.0.0.0",
-      port: Number(process.env.MCP_GATEWAY_PORT ?? process.env.PORT ?? 3000),
+      port: Number(process.env.PORT ?? process.env.MCP_GATEWAY_PORT ?? 3000),
       advancedMode: false
     },
     spaces: [
@@ -163,7 +163,7 @@ function migrateConfig(config: GatewayConfig) {
 }
 
 function applyRuntimeGatewayPort(config: GatewayConfig) {
-  const runtimePort = Number(process.env.MCP_GATEWAY_PORT ?? process.env.PORT);
+  const runtimePort = Number(process.env.PORT ?? process.env.MCP_GATEWAY_PORT);
   if (Number.isFinite(runtimePort) && runtimePort > 0) {
     config.gateway.port = runtimePort;
   }
