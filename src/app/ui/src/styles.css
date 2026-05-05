@@ -455,9 +455,9 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   border-radius: 50%;
   background: var(--color-slate);
 }
-.statusBadge.connected::before, .statusBadge.success::before, .statusBadge.approved::before { background: var(--color-signal-blue); }
+.statusBadge.connected::before, .statusBadge.success::before, .statusBadge.approved::before, .statusBadge.active::before, .statusBadge.optimised::before { background: var(--color-signal-blue); }
 .statusBadge.pending::before { background: var(--color-ember); }
-.statusBadge.denied::before, .statusBadge.rejected::before, .statusBadge.error::before { background: var(--color-obsidian); }
+.statusBadge.denied::before, .statusBadge.rejected::before, .statusBadge.error::before, .statusBadge.not_started::before { background: var(--color-obsidian); }
 
 .policySelect {
   width: 150px;
@@ -607,6 +607,65 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   display: grid;
   gap: 18px;
 }
+.installActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.installGrid {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+.installStatusCard, .installConfigCard {
+  background: #ffffff;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card);
+}
+.installHealth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: var(--color-powder);
+}
+.installHealth svg { color: var(--color-signal-blue); }
+.installHealth strong, .installHealth span { display: block; }
+.installHealth span { margin-top: 4px; color: var(--color-gravel); font-size: 13px; }
+.installMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.latestItem {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: #ffffff;
+  display: grid;
+  gap: 5px;
+}
+.latestItem span {
+  color: var(--color-gravel);
+  font-size: 12px;
+}
+.latestItem strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.dangerSoft { color: var(--color-ember); border-color: rgba(255, 71, 4, 0.25); background: #fff8f5; }
+.dangerSoft:hover { background: #fff0ea; color: var(--color-ember); }
 
 .tokenPage {
   flex: 1;
@@ -697,12 +756,20 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
+.tokenMetricGrid.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .optimiserMetric {
   padding: 16px;
   display: grid;
   gap: 8px;
 }
-.optimiserMetric span, .costRow span, .signalList span {
+.optimiserMetric > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-gravel);
+}
+.optimiserMetric svg { color: var(--color-signal-blue); }
+.optimiserMetric span, .optimiserMetric small, .costRow span, .signalList span {
   color: var(--color-gravel);
   font-size: 13px;
 }
@@ -712,18 +779,87 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   font-weight: 300;
   line-height: 1.1;
 }
-.tokenSplit {
+.optimiserMetric small { line-height: 1.35; }
+.tokenOverview {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
   gap: 16px;
 }
 .tokenPanel {
   padding: 20px;
   display: grid;
   gap: 16px;
+}
+.latestPanel h2, .spendPanel h2, .logPanel h2, .selectedContextPanel h2 {
+  font-size: 22px;
+  line-height: 1.25;
+}
+.latestRequestGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.tokenFlow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.flowStep {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: var(--color-powder);
+  display: grid;
+  gap: 7px;
+}
+.flowStep svg { color: #0f9f6e; }
+.flowStep span { color: var(--color-gravel); font-size: 12px; }
+.flowStep strong { font-size: 14px; }
+.tokenSentence {
+  padding: 13px 14px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-gravel);
+  font-size: 14px;
+}
+.spendPanel { align-content: start; }
+.spendBars { display: grid; gap: 13px; }
+.spendBar {
+  display: grid;
+  gap: 8px;
+}
+.spendBar > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-gravel);
+  font-size: 13px;
+}
+.spendBar.orange .barTrack span { background: #fb923c; }
+.spendBar.blue .barTrack span { background: var(--color-signal-blue); }
+.spendBar.green .barTrack span { background: #12a36d; }
+.expenseGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.expenseGrid .costRow {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+.expenseGrid .costRow.strong {
+  background: var(--color-obsidian);
+  border-color: var(--color-obsidian);
 }
 .ignoredBadge {
   border: 1px solid var(--color-chalk);
@@ -735,6 +871,7 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   background: var(--color-powder);
 }
 .selectedFiles { display: grid; gap: 10px; }
+.selectedFiles.slim { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .selectedFile {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -789,6 +926,8 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   background: var(--color-powder);
 }
 .logPanel { overflow: hidden; }
+.logPanel.focused { max-height: 420px; }
+.selectedContextPanel { max-width: 1200px; }
 .tokenTableWrap { overflow: auto; }
 .tokenTable tr { cursor: pointer; }
 .tokenTable tbody tr.active, .tokenTable tbody tr:hover { background: var(--color-powder); }
@@ -930,6 +1069,8 @@ th { background: var(--color-powder); }
   .approvalWorkspace { grid-template-columns: 1fr; }
   .approvalTabs { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: auto; }
   .activityGrid { grid-template-columns: 1fr; }
+  .installGrid, .tokenOverview { grid-template-columns: 1fr; }
+  .latestRequestGrid, .tokenFlow, .selectedFiles.slim { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .policyMatrix { grid-template-columns: minmax(190px, 1fr); }
   .policyHead { display: none; }
 }
@@ -966,7 +1107,7 @@ th { background: var(--color-powder); }
   .demoCardHeader { align-items: start; }
   .gatewayDemoCard .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tokenLatest, .tokenSplit, .tokenMetricGrid { grid-template-columns: 1fr; }
+  .tokenLatest, .tokenSplit, .tokenMetricGrid, .tokenMetricGrid.compact, .latestRequestGrid, .tokenFlow, .selectedFiles.slim, .installMetaGrid, .expenseGrid { grid-template-columns: 1fr; }
   .contextBar > div:first-child, .selectedFile { grid-template-columns: 1fr; }
   .selectedFile > svg { display: none; }
   .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }

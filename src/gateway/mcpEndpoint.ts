@@ -5,7 +5,13 @@ import { verifyApiKey } from "../spaces/apiKeys.js";
 import { recordTokenCostOptimisation } from "./tokenCostOptimiser.js";
 import { handleToolCall, handleToolList } from "./toolRouter.js";
 
-export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig, options?: { legacyToken?: string; onInstallUsed?: (profile: InstallProfile) => Promise<void> }) {
+interface InstallGateResult {
+  allowed: boolean;
+  approvalId?: string;
+  message?: string;
+}
+
+export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig, options?: { legacyToken?: string; onInstallUsed?: (profile: InstallProfile) => Promise<InstallGateResult | void> }) {
   app.options("/mcp", (_req, res) => {
     applyMcpCors(res);
     res.sendStatus(204);
@@ -20,7 +26,21 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
       res.status(401).json({ error: "Invalid install token" });
       return;
     }
-    await options?.onInstallUsed?.(installProfile);
+
+    const body = req.body as { id?: string | number; method?: string; params?: Record<string, unknown> };
+    const installGate = await options?.onInstallUsed?.(installProfile);
+    if (installGate && !installGate.allowed) {
+      res.json({
+        jsonrpc: "2.0",
+        id: body.id,
+        error: {
+          code: -32001,
+          message: installGate.message ?? "MCP install approval is required before this gateway can be used.",
+          data: { approvalId: installGate.approvalId, installProfileId: installProfile.id }
+        }
+      });
+      return;
+    }
 
     const forwarded = await forwardToMetaMcp(req);
     if (forwarded) {
@@ -28,7 +48,6 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
       return;
     }
 
-    const body = req.body as { id?: string | number; method?: string; params?: Record<string, unknown> };
     try {
       if (body.method === "initialize") {
         const requestedProtocolVersion = typeof body.params?.protocolVersion === "string" ? body.params.protocolVersion : "2025-03-26";

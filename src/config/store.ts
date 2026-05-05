@@ -107,6 +107,9 @@ function migrateConfig(config: GatewayConfig) {
     for (const space of config.spaces) {
     space.connectors ??= [];
     space.installProfiles ??= [createOwnerInstallProfile()];
+    for (const profile of space.installProfiles) {
+      profile.approvalStatus ??= "not_started";
+    }
     space.adminAgent ??= {
       provider: "openai",
       model: "gpt-4.1-mini",
@@ -182,7 +185,8 @@ export function createOwnerInstallProfile(token = createInstallToken()): Install
     tokenHash: hashApiKey(token),
     tokenPreview: previewApiKey(token),
     allowedTools: ["*"],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    approvalStatus: "not_started"
   };
 }
 
@@ -193,7 +197,8 @@ export function addInstallProfile(space: Space, name: string, token = createInst
     tokenHash: hashApiKey(token),
     tokenPreview: previewApiKey(token),
     allowedTools: ["*"],
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    approvalStatus: "not_started"
   };
   space.installProfiles.push(profile);
   return { profile, token };

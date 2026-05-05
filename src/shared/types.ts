@@ -1,6 +1,7 @@
 export type ConnectorStatus = "not_connected" | "connected" | "error";
 export type AuthType = "token" | "path" | "custom" | "oauth_placeholder";
 export type FieldType = "text" | "password" | "textarea";
+export type InstallApprovalStatus = "not_started" | "pending" | "active" | "rejected";
 
 export interface RequiredField {
   key: string;
@@ -58,6 +59,10 @@ export interface InstallProfile {
   allowedTools: string[];
   createdAt: string;
   lastUsedAt?: string;
+  approvalStatus?: InstallApprovalStatus;
+  approvalId?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
 }
 
 export interface AdminAgentSettings {
