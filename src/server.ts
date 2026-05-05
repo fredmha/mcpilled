@@ -523,6 +523,7 @@ app.post("/api/install-profiles", async (req, res) => {
   const { profile, token } = addInstallProfile(loaded.config.spaces[0], name);
   await saveSecret(`install-profile:default:${profile.id}`, { token });
   await saveConfig(loaded.config);
+  await resetTokenCostOptimisations();
   res.json({ ok: true, profile, installConfigs: await installConfigs(profile.id), state: await statePayload() });
 });
 
@@ -1002,6 +1003,20 @@ function approvalPayload(approval: ApprovalRequest) {
     };
   }
   const server = approval.tool.split(".")[0] || "mcp";
+  const bundledTools = approval.requestedTools?.length
+    ? approval.requestedTools
+    : (approval.tool === "client_portal.create" || approval.tool === "hubspot.get_customer_context_for_lovable_build")
+      ? clientPortalRequestedTools(approval.input)
+      : [{
+          server,
+          tool: approval.tool,
+          reason: approval.reason ?? "Policy requires approval.",
+          flagReason: approval.reason ?? "Policy requires approval.",
+          currentPolicy: "require_approval" as const
+        }];
+  const requestedServers = approval.requestedServers?.length
+    ? approval.requestedServers
+    : [...new Set(bundledTools.map((tool) => tool.server))];
   return {
     ...approval,
     requester: approval.requester ?? approval.userId,
@@ -1009,14 +1024,8 @@ function approvalPayload(approval: ApprovalRequest) {
     requesterTeam: approval.requesterTeam ?? approval.teamId,
     source: approval.source ?? "MCP Gateway",
     timestamp: approval.createdAt,
-    requestedServers: approval.requestedServers ?? [server],
-    requestedTools: approval.requestedTools ?? [{
-      server,
-      tool: approval.tool,
-      reason: approval.reason ?? "Policy requires approval.",
-      flagReason: approval.reason ?? "Policy requires approval.",
-      currentPolicy: "require_approval"
-    }],
+    requestedServers,
+    requestedTools: bundledTools,
     summary: approval.summary ?? `${approval.userId} requested ${approval.tool}.`,
     toolApprovals: {}
   };
@@ -1052,6 +1061,7 @@ async function activateInstallApproval(approvalId: string, approval?: ApprovalRe
   profile.approvedAt = decidedAt;
   profile.rejectedAt = undefined;
   await saveConfig(loaded.config);
+  await resetTokenCostOptimisations();
   if (approval) {
     await updateApproval(approval.id, {
       status: "approved",
