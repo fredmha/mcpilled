@@ -20,6 +20,39 @@ export interface PolicyEvaluation {
   matchedRule: PolicyRule;
 }
 
+export const placeholderUserIds = ["fred.haris", "max.epstein", "liberty.jacobs", "hugh.thomas"] as const;
+export type PlaceholderUserId = typeof placeholderUserIds[number];
+
+const placeholderAliases: Record<string, PlaceholderUserId> = {
+  fred: "fred.haris",
+  "fred.haris": "fred.haris",
+  "fred.haris@company.io": "fred.haris",
+  max: "max.epstein",
+  "max.epstein": "max.epstein",
+  "max.epstein@company.io": "max.epstein",
+  liberty: "liberty.jacobs",
+  "liberty.jacobs": "liberty.jacobs",
+  "liberty.jacobs@company.io": "liberty.jacobs",
+  hugh: "hugh.thomas",
+  "hugh.thomas": "hugh.thomas",
+  "hugh.thomas@company.io": "hugh.thomas"
+};
+
+export function normalizeUserId(value: unknown): PlaceholderUserId {
+  if (typeof value !== "string") {
+    return "fred.haris";
+  }
+  const normalized = value.trim().toLowerCase();
+  return placeholderAliases[normalized] ?? "fred.haris";
+}
+
+export function normalizeActorContext(actor: ActorContext): ActorContext {
+  return {
+    userId: normalizeUserId(actor.userId),
+    teamId: "users"
+  };
+}
+
 const defaultPolicies: PolicyRule[] = [
   {
     id: "global-read-allow",
@@ -123,6 +156,7 @@ export async function resetGovernanceState() {
 }
 
 export async function evaluatePolicy(actor: ActorContext, toolName: string): Promise<PolicyEvaluation> {
+  actor = normalizeActorContext(actor);
   const policies = await readPolicies();
   const toolClass = classifyTool(toolName);
   const trace: string[] = [];
@@ -174,6 +208,7 @@ function matches(rule: PolicyRule, scope: PolicyRule["scope"], subjectId: string
 }
 
 export async function queueApproval(actor: ActorContext, tool: string, input: Record<string, unknown>, trace: string[]) {
+  actor = normalizeActorContext(actor);
   const approvals = await readApprovals();
   const request: ApprovalRequest = {
     id: nanoid(),
@@ -200,6 +235,7 @@ export async function queueApproval(actor: ActorContext, tool: string, input: Re
 }
 
 export async function queueWorkflowApproval(actor: ActorContext, input: Record<string, unknown>, requestedTools: ApprovalRequestedTool[], trace: string[]) {
+  actor = normalizeActorContext(actor);
   const approvals = await readApprovals();
   const clientName = typeof input.clientName === "string" && input.clientName.trim() ? input.clientName.trim() : "Acme Health";
   const request: ApprovalRequest = {
@@ -280,6 +316,7 @@ export async function readAudit(limit = 100) {
 }
 
 export async function auditToolResult(actor: ActorContext, tool: string, input: Record<string, unknown>, status: AuditStatus, trace: string[], output?: unknown, reason?: string, approvalId?: string) {
+  actor = normalizeActorContext(actor);
   return writeAudit({
     user: actor.userId,
     team: actor.teamId,

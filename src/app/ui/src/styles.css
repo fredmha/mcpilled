@@ -927,6 +927,63 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
 }
 .tokenTable tbody tr:hover { background: var(--color-powder); }
 .tokenTable .statusBadge { white-space: nowrap; }
+.traceExpandButton {
+  min-height: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  color: var(--color-obsidian);
+  gap: 6px;
+  justify-content: flex-start;
+}
+.traceExpandButton:hover { background: transparent; }
+.traceExpandedRow td {
+  background: #ffffff;
+  padding: 0;
+}
+.traceExpandedContent {
+  border-top: 1px solid var(--color-chalk);
+  padding: 14px 16px 16px;
+  display: grid;
+  gap: 12px;
+}
+.traceExpandedHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.traceExpandedHeader span {
+  color: var(--color-gravel);
+  font-size: 12px;
+}
+.traceExpandedGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.traceList {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+.traceListItem {
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--color-powder);
+  display: grid;
+  gap: 4px;
+}
+.traceListItem.removed { background: #ffffff; }
+.traceListItem strong { font-size: 13px; }
+.traceListItem p {
+  margin: 0;
+  color: var(--color-gravel);
+  font-size: 12px;
+  line-height: 1.4;
+}
 .drawerBackdrop {
   position: fixed;
   inset: 0;
@@ -1102,7 +1159,7 @@ th { background: var(--color-powder); }
   .demoCardHeader { align-items: start; }
   .gatewayDemoCard .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tokenMetricGrid, .latestRequestGrid, .tokenFlow, .installMetaGrid, .expenseGrid, .contextTraceGrid { grid-template-columns: 1fr; }
+  .tokenMetricGrid, .latestRequestGrid, .tokenFlow, .installMetaGrid, .expenseGrid, .contextTraceGrid, .traceExpandedGrid { grid-template-columns: 1fr; }
   .selectedFile { grid-template-columns: 1fr; }
   .selectedFile > svg { display: none; }
   .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext, .userPolicy { display: grid; }
