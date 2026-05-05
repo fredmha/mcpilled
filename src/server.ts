@@ -9,7 +9,7 @@ import { registerMcpEndpoint } from "./gateway/mcpEndpoint.js";
 import { readRecentActivity } from "./gateway/activityLogger.js";
 import { auditToolResult, capabilityIndex, queueApproval, readApprovals, readAudit, readPolicies, replacePolicies, resetGovernanceState, updateApproval } from "./gateway/governance.js";
 import { listDownstreamTools, testDownstreamServer } from "./gateway/downstreamMcp.js";
-import { readTokenCostOptimisations, resetTokenCostOptimisations } from "./gateway/tokenCostOptimiser.js";
+import { readTokenCostOptimisations, recordTokenCostOptimisation, resetTokenCostOptimisations } from "./gateway/tokenCostOptimiser.js";
 import { clientPortalRequestedTools, executeApprovedTool, handleToolCall } from "./gateway/toolRouter.js";
 import { hashApiKey, previewApiKey } from "./spaces/apiKeys.js";
 import type { AgentMessage, ApprovalRequest, AuditLogEntry, InstallProfile, McpServerDefinition, PolicyDecision, PolicyRule, StoredConnector, ToolCapability } from "./shared/types.js";
@@ -457,21 +457,25 @@ app.post("/api/demo/reset", async (_req, res) => {
 });
 
 app.post("/api/demo/run", async (req, res) => {
-  const scenario = typeof req.body.scenario === "string" ? req.body.scenario : "allowed-read";
+  const scenario = typeof req.body.scenario === "string" ? req.body.scenario : "brand-assets";
   const scenarios: Record<string, { userId: string; teamId: string; tool: string; input: Record<string, unknown> }> = {
-    "allowed-read": { userId: "alice", teamId: "engineering", tool: "github.list_repos", input: {} },
-    "denied-write": { userId: "bob", teamId: "contractors", tool: "github.create_issue", input: { owner: "acme", repo: "demo-api", title: "Denied demo issue", body: "Blocked by team policy." } },
-    "approval-required": { userId: "alice", teamId: "engineering", tool: "github.create_issue", input: { owner: "acme", repo: "demo-api", title: "Approval demo issue", body: "Queued for admin review." } },
-    "admin-override": { userId: "admin", teamId: "security", tool: "github.create_issue", input: { owner: "acme", repo: "demo-api", title: "Admin override issue", body: "Allowed by user policy." } },
-    "client-portal": { userId: "intern", teamId: "interns", tool: "client_portal.create", input: { clientName: "Acme Health", portalGoal: "Create a custom client portal for onboarding, reporting, and account updates." } }
+    "brand-assets": { userId: "fred.haris", teamId: "users", tool: "brand_assets.get_brand_kit", input: { clientName: "Violet Labs", portalGoal: "Create a partner portal using approved brand assets." } },
+    "hubspot-approval": { userId: "max.epstein", teamId: "users", tool: "hubspot.search_contacts", input: { query: "Violet Labs", properties: ["contacts", "companies", "deals"] } },
+    "prod-denied": { userId: "liberty.jacobs", teamId: "users", tool: "prod_db.query", input: { sql: "select * from customer_portal_context where client_name = $1", params: ["Violet Labs"] } },
+    "prod-approval": { userId: "hugh.thomas", teamId: "users", tool: "prod_db.query", input: { sql: "select * from customer_portal_context where client_name = $1", params: ["Violet Labs"] } }
   };
-  const selected = scenarios[scenario] ?? scenarios["allowed-read"];
+  const selected = scenarios[scenario] ?? scenarios["brand-assets"];
   const profile = loaded.config.spaces[0].installProfiles[0];
+  const optimisation = await recordTokenCostOptimisation({
+    appName: "demo-runner",
+    toolName: selected.tool,
+    args: selected.input
+  });
   try {
     const result = await handleToolCall(loaded.config, selected.tool, selected.input, "demo-runner", profile, { userId: selected.userId, teamId: selected.teamId });
-    res.json({ ok: true, scenario, result, overview: await overviewPayload() });
+    res.json({ ok: true, scenario, result, optimisation, overview: await overviewPayload() });
   } catch (error) {
-    res.status(200).json({ ok: false, scenario, message: error instanceof Error ? error.message : "Scenario failed.", overview: await overviewPayload() });
+    res.status(200).json({ ok: false, scenario, message: error instanceof Error ? error.message : "Scenario failed.", optimisation, overview: await overviewPayload() });
   }
 });
 
@@ -771,8 +775,8 @@ async function controlRoomPayload() {
   const approvals = await readApprovals();
   const tools = capabilityIndex(loaded.config);
   const policies = await readPolicies();
-  const teams = teamPayload(audit, approvals, policies);
-  const servers = controlRoomServers(tools, policies, teams);
+  const users = userPayload(audit, approvals, policies);
+  const servers = controlRoomServers(tools, policies, users);
   const pendingApprovals = approvals.filter((approval) => approval.status === "pending");
   return {
     gatewayUrl: gatewayUrl(),
@@ -782,7 +786,7 @@ async function controlRoomPayload() {
       pendingApprovals: pendingApprovals.length,
       totalCalls: audit.length
     },
-    teams,
+    users,
     mcpServers: servers,
     pendingApprovals: pendingApprovals.map((approval) => approvalPayload(approval)),
     liveRequests: audit.slice(0, 6).map((entry) => liveRequestPayload(entry)),
@@ -802,52 +806,40 @@ async function controlRoomPayload() {
 }
 
 type UiPolicyDecision = "allow" | "deny" | "require_approval" | "inherit";
-type TeamMap = Record<string, { id: string; name: string; members: string[]; color: string }>;
+type UserMap = Record<string, { id: string; name: string; email: string; color: string }>;
 
-const defaultTeams: TeamMap = {
-  engineering: {
-    id: "engineering",
-    name: "engineering",
-    members: ["alice", "alice@company.io", "intern@company.io", "bob@company.io"],
-    color: "#7C3AED"
+const defaultUsers: UserMap = {
+  "fred.haris": {
+    id: "fred.haris",
+    name: "Fred Haris",
+    email: "fred.haris@company.io",
+    color: "#0447ff"
   },
-  interns: {
-    id: "interns",
-    name: "interns",
-    members: ["intern", "intern@company.io"],
-    color: "#F97316"
+  "max.epstein": {
+    id: "max.epstein",
+    name: "Max Epstein",
+    email: "max.epstein@company.io",
+    color: "#ff4704"
   },
-  marketing: {
-    id: "marketing",
-    name: "marketing",
-    members: ["contractor@company.io", "jane@company.io"],
-    color: "#F97316"
+  "liberty.jacobs": {
+    id: "liberty.jacobs",
+    name: "Liberty Jacobs",
+    email: "liberty.jacobs@company.io",
+    color: "#57534f"
   },
-  finance: {
-    id: "finance",
-    name: "finance",
-    members: ["admin", "admin@company.io"],
-    color: "#14B8A6"
-  },
-  contractors: {
-    id: "contractors",
-    name: "contractors",
-    members: ["bob"],
-    color: "#2563EB"
-  },
-  security: {
-    id: "security",
-    name: "security",
-    members: ["admin"],
-    color: "#22C55E"
+  "hugh.thomas": {
+    id: "hugh.thomas",
+    name: "Hugh Thomas",
+    email: "hugh.thomas@company.io",
+    color: "#000000"
   }
 };
 
-function controlRoomServers(tools: ToolCapability[], policies: PolicyRule[], teams: TeamMap) {
+function controlRoomServers(tools: ToolCapability[], policies: PolicyRule[], users: UserMap) {
   return loaded.config.spaces[0].connectors.map((connector) => {
     const definition = getConnectorDefinition(connector.id);
     const serverTools = tools.filter((tool) => tool.serverId === connector.id);
-    const access = serverAccessFromPolicies(serverTools, policies, teams);
+    const access = serverAccessFromPolicies(serverTools, policies, users);
     return {
       id: connector.id,
       name: connector.displayNameOverride ?? definition?.displayName ?? connector.id,
@@ -865,45 +857,33 @@ function controlRoomServers(tools: ToolCapability[], policies: PolicyRule[], tea
   });
 }
 
-function teamPayload(audit: AuditLogEntry[], approvals: ApprovalRequest[], policies: PolicyRule[]) {
-  const teams: TeamMap = Object.fromEntries(Object.entries(defaultTeams).map(([id, team]) => [id, { ...team, members: [...team.members] }]));
-  for (const teamId of new Set([
-    ...audit.map((entry) => entry.team),
-    ...approvals.map((approval) => approval.teamId),
-    ...policies.filter((policy) => policy.scope === "team").map((policy) => policy.subjectId)
+function userPayload(audit: AuditLogEntry[], approvals: ApprovalRequest[], policies: PolicyRule[]) {
+  const users: UserMap = Object.fromEntries(Object.entries(defaultUsers).map(([id, user]) => [id, { ...user }]));
+  for (const userId of new Set([
+    ...audit.map((entry) => entry.user),
+    ...approvals.map((approval) => approval.userId),
+    ...policies.filter((policy) => policy.scope === "user").map((policy) => policy.subjectId)
   ].filter(Boolean))) {
-    teams[teamId] ??= { id: teamId, name: teamId, members: [], color: "#64748B" };
+    users[userId] ??= {
+      id: userId,
+      name: userId.split(".").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "),
+      email: userId.includes("@") ? userId : `${userId}@company.io`,
+      color: "#64748B"
+    };
   }
-  for (const entry of audit) {
-    addTeamMember(teams, entry.team, entry.user);
-  }
-  for (const approval of approvals) {
-    addTeamMember(teams, approval.teamId, approval.userId);
-  }
-  return teams;
+  return users;
 }
 
-function addTeamMember(teams: TeamMap, teamId: string, userId: string) {
-  if (!teamId || !userId) {
-    return;
-  }
-  teams[teamId] ??= { id: teamId, name: teamId, members: [], color: "#64748B" };
-  if (!teams[teamId].members.includes(userId)) {
-    teams[teamId].members.push(userId);
-  }
-}
-
-function serverAccessFromPolicies(serverTools: ToolCapability[], policies: PolicyRule[], teams: TeamMap) {
-  const teamSubjects = Object.keys(teams);
+function serverAccessFromPolicies(serverTools: ToolCapability[], policies: PolicyRule[], users: UserMap) {
   const userSubjects = [
     ...new Set([
-      ...Object.values(teams).flatMap((team) => team.members),
+      ...Object.keys(users),
       ...policies.filter((policy) => policy.scope === "user").map((policy) => policy.subjectId)
     ])
   ];
   return {
     global: aggregateDecision(serverTools, policies, "global", "*", false),
-    teams: Object.fromEntries(teamSubjects.map((teamId) => [teamId, aggregateDecision(serverTools, policies, "team", teamId, true)])),
+    teams: {},
     users: Object.fromEntries(userSubjects.map((userId) => [userId, aggregateDecision(serverTools, policies, "user", userId, true)]))
   };
 }

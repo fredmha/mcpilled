@@ -353,7 +353,7 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   box-shadow: none;
 }
 .serverSummary:hover, .teamHeader:hover { background: var(--color-powder); color: inherit; }
-.serverIdentity, .serverMeta, .titleRow, .teamHeader, .teamPolicyTop, .teamExpand, .requestTop, .approvalHeader {
+.serverIdentity, .serverMeta, .titleRow, .teamHeader, .teamPolicyTop, .teamExpand, .requestTop, .approvalHeader, .userPolicy, .userIdentity {
   display: flex;
   align-items: center;
 }
@@ -421,6 +421,27 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   border: 1px solid var(--color-chalk);
   border-radius: 8px;
   background: #ffffff;
+}
+.userPolicyList { display: grid; gap: 8px; }
+.userPolicy {
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: #ffffff;
+}
+.userIdentity { gap: 12px; min-width: 0; }
+.userIdentity > div:last-child { min-width: 0; display: grid; gap: 2px; }
+.userIdentity strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.userIdentity span {
+  color: var(--color-gravel);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .toolBlock { display: grid; gap: 12px; }
 .toolChips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -670,10 +691,10 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
 .tokenPage {
   flex: 1;
   overflow: auto;
-  padding: 48px 40px 72px;
+  padding: 36px 40px 64px;
   display: grid;
   align-content: start;
-  gap: 16px;
+  gap: 14px;
 }
 .tokenPanel, .optimiserMetric {
   max-width: 1200px;
@@ -722,9 +743,9 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
 }
 .optimiserMetric small { line-height: 1.35; }
 .chartPanel {
-  padding: 20px;
+  padding: 18px 20px 16px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 .projectionPill {
   border: 1px solid var(--color-chalk);
@@ -738,7 +759,7 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
 .chartSurface {
   border: 1px solid var(--color-chalk);
   border-radius: 8px;
-  padding: 10px 12px 2px;
+  padding: 10px 12px 0;
   background: #ffffff;
 }
 .tokenMainGrid {
@@ -751,27 +772,27 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   align-items: start;
 }
 .tokenPanel {
-  padding: 20px;
+  padding: 18px 20px;
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 .detailPanel h2, .logPanel h2 {
-  font-size: 22px;
-  line-height: 1.25;
+  font-size: 20px;
+  line-height: 1.3;
 }
 .latestRequestGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 .tokenFlow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 .flowStep {
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid var(--color-chalk);
   border-radius: 8px;
   background: var(--color-powder);
@@ -822,15 +843,29 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   gap: 10px;
 }
 .selectedFiles { display: grid; gap: 10px; }
+.contextTraceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.contextTraceColumn {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
 .selectedFile {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
-  padding: 14px;
+  padding: 12px 14px;
   border: 1px solid var(--color-chalk);
   border-radius: 8px;
   background: var(--color-powder);
+}
+.selectedFile.removed {
+  background: #ffffff;
 }
 .selectedFile h3 { margin-bottom: 3px; }
 .selectedFile p {
@@ -867,9 +902,30 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   background: var(--color-powder);
 }
 .logPanel { overflow: hidden; }
-.tokenTableWrap { overflow: auto; }
+.tokenTableWrap {
+  overflow: auto;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+}
+.tokenTable {
+  min-width: 760px;
+}
 .tokenTable tr { cursor: pointer; }
-.tokenTable tbody tr.active, .tokenTable tbody tr:hover { background: var(--color-powder); }
+.tokenTable th,
+.tokenTable td {
+  padding: 11px 16px;
+  vertical-align: middle;
+}
+.tokenTable th.right,
+.tokenTable td.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tokenTable tbody tr.active {
+  background: var(--color-powder);
+  box-shadow: inset 3px 0 0 var(--color-signal-blue);
+}
+.tokenTable tbody tr:hover { background: var(--color-powder); }
 .tokenTable .statusBadge { white-space: nowrap; }
 .drawerBackdrop {
   position: fixed;
@@ -1008,7 +1064,7 @@ th { background: var(--color-powder); }
   .approvalWorkspace { grid-template-columns: 1fr; }
   .approvalTabs { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: auto; }
   .activityGrid { grid-template-columns: 1fr; }
-  .installGrid, .tokenMainGrid { grid-template-columns: 1fr; }
+  .installGrid, .tokenMainGrid, .contextTraceGrid { grid-template-columns: 1fr; }
   .latestRequestGrid, .tokenFlow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .policyMatrix { grid-template-columns: minmax(190px, 1fr); }
   .policyHead { display: none; }
@@ -1046,10 +1102,10 @@ th { background: var(--color-powder); }
   .demoCardHeader { align-items: start; }
   .gatewayDemoCard .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tokenMetricGrid, .latestRequestGrid, .tokenFlow, .installMetaGrid, .expenseGrid { grid-template-columns: 1fr; }
+  .tokenMetricGrid, .latestRequestGrid, .tokenFlow, .installMetaGrid, .expenseGrid, .contextTraceGrid { grid-template-columns: 1fr; }
   .selectedFile { grid-template-columns: 1fr; }
   .selectedFile > svg { display: none; }
-  .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }
+  .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext, .userPolicy { display: grid; }
   .pageHeader { align-items: start; }
   h1 { font-size: 36px; letter-spacing: -0.72px; line-height: 1.13; }
   .serverSummary { justify-items: stretch; gap: 16px; }

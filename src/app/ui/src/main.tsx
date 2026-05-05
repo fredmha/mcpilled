@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Activity,
   BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  CircleDollarSign,
   Clipboard,
   Database,
   FileText,
@@ -20,7 +18,6 @@ import {
   Shield,
   ShieldCheck,
   Terminal,
-  TrendingDown,
   XCircle
 } from "lucide-react";
 import {
@@ -40,10 +37,10 @@ type Page = "servers" | "approvals" | "install" | "optimiser";
 type UiDecision = "allow" | "deny" | "require_approval" | "inherit";
 type ToolDecision = "approve" | "deny";
 
-interface Team {
+interface User {
   id: string;
   name: string;
-  members: string[];
+  email: string;
   color: string;
 }
 
@@ -100,7 +97,7 @@ interface ControlRoomPayload {
     pendingApprovals: number;
     totalCalls: number;
   };
-  teams: Record<string, Team>;
+  users: Record<string, User>;
   mcpServers: ControlServer[];
   pendingApprovals: ControlApproval[];
   installConfigs: Record<string, string>;
@@ -121,13 +118,17 @@ interface TokenCostOptimisationTrace {
     tokenCount: number;
     reason: string;
   }>;
+  removedFiles?: Array<{
+    id: string;
+    title: string;
+    path: string;
+    tokenCount: number;
+    reason: string;
+  }>;
   ignoredFiles: number;
   naiveTokens: number;
   optimisedTokens: number;
   tokenReductionPercent: number;
-  estimatedCostBefore: number;
-  estimatedCostAfter: number;
-  estimatedCostSaved: number;
   status: "optimised";
 }
 
@@ -135,7 +136,7 @@ const navItems: Array<{ page: Page; label: string; icon: React.ReactNode }> = [
   { page: "servers", label: "MCP Servers", icon: <Plug size={18} /> },
   { page: "approvals", label: "Approvals", icon: <ListChecks size={18} /> },
   { page: "install", label: "Install", icon: <KeyRound size={18} /> },
-  { page: "optimiser", label: "Token Cost Optimiser", icon: <BarChart3 size={18} /> }
+  { page: "optimiser", label: "Token Optimiser", icon: <BarChart3 size={18} /> }
 ];
 
 function App() {
@@ -251,7 +252,6 @@ function TopBar({
 
 function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload; refresh: () => Promise<void>; openRegister: () => void }) {
   const [expandedServer, setExpandedServer] = useState<string | null>(data.mcpServers[0]?.id ?? null);
-  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
   const gatewayIsLocal = data.gatewayUrl.includes("localhost") || data.gatewayUrl.includes("127.0.0.1");
 
   async function updateAccess(server: ControlServer, patch: Partial<Pick<ControlServer, "global" | "teams" | "users">>) {
@@ -313,7 +313,6 @@ function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload
       </div>
       {data.mcpServers.map((server) => (
         <ServerCard
-          expandedTeam={expandedTeam}
           isExpanded={expandedServer === server.id}
           key={server.id}
           onIndex={() => indexServer(server)}
@@ -321,8 +320,7 @@ function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload
           onToggle={() => toggleEnabled(server)}
           onUpdate={(patch) => updateAccess(server, patch)}
           server={server}
-          setExpandedTeam={setExpandedTeam}
-          teams={data.teams}
+          users={data.users}
         />
       ))}
     </section>
@@ -331,24 +329,20 @@ function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload
 
 function ServerCard({
   server,
-  teams,
   onSelect,
   isExpanded,
-  expandedTeam,
-  setExpandedTeam,
   onUpdate,
   onToggle,
-  onIndex
+  onIndex,
+  users
 }: {
   server: ControlServer;
-  teams: Record<string, Team>;
   onSelect: () => void;
   isExpanded: boolean;
-  expandedTeam: string | null;
-  setExpandedTeam: (id: string | null) => void;
   onUpdate: (patch: Partial<Pick<ControlServer, "global" | "teams" | "users">>) => void;
   onToggle: () => void;
   onIndex: () => void;
+  users: Record<string, User>;
 }) {
   return (
     <article className="serverCard">
@@ -381,43 +375,29 @@ function ServerCard({
           <section className="accessBlock">
             <div>
               <h3>Global Policy</h3>
-              <p>Applies to every team and user unless overridden below.</p>
+              <p>Applies to every user unless overridden below.</p>
             </div>
             <PolicySelect value={server.global} onChange={(global) => onUpdate({ global })} />
           </section>
 
           <section className="accessBlock vertical">
             <div>
-              <h3>Team Overrides</h3>
-              <p>Team policies override global policy.</p>
+              <h3>User Overrides</h3>
+              <p>User policies override the global policy for this MCP.</p>
             </div>
-            <div className="teamPolicyList">
-              {Object.entries(server.teams).map(([teamId, decision]) => {
-                const team = teams[teamId] ?? { id: teamId, name: teamId, members: [], color: "#64748B" };
-                const teamOpen = expandedTeam === teamId;
-                return (
-                  <div className="teamPolicy" key={teamId}>
-                    <div className="teamPolicyTop">
-                      <button className="teamExpand" onClick={() => setExpandedTeam(teamOpen ? null : teamId)}>
-                        {teamOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        <strong>{team.name}</strong>
-                        <span>{team.members.length} members</span>
-                      </button>
-                      <PolicySelect value={decision} onChange={(value) => onUpdate({ teams: { ...server.teams, [teamId]: value } })} />
+            <div className="userPolicyList">
+              {Object.values(users).map((user) => (
+                <div className="userPolicy" key={user.id}>
+                  <div className="userIdentity">
+                    <div className="avatar small" style={{ borderColor: user.color, color: user.color }}>{initials(user.name)}</div>
+                    <div>
+                      <strong>{user.name}</strong>
+                      <span className="mono">{user.email}</span>
                     </div>
-                    {teamOpen && (
-                      <div className="memberPolicies">
-                        {team.members.map((member) => (
-                          <div className="memberPolicy" key={member}>
-                            <span className="mono">{member}</span>
-                            <PolicySelect value={server.users[member] ?? "inherit"} onChange={(value) => onUpdate({ users: { ...server.users, [member]: value } })} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                );
-              })}
+                  <PolicySelect value={server.users[user.id] ?? "inherit"} onChange={(value) => onUpdate({ users: { ...server.users, [user.id]: value } })} />
+                </div>
+              ))}
             </div>
           </section>
 
@@ -514,7 +494,7 @@ function ApprovalCard({ approval, submitToolDecisions, reject }: { approval: Con
         <span className="minutesBadge">{timeAgo(approval.timestamp ?? approval.createdAt)}</span>
       </div>
       <div className="approvalContext">
-        <span>Team: {approval.requesterTeam ?? approval.teamId}</span>
+        <span>User based policy</span>
         <span>Source: {approval.source ?? "MCP Gateway"}</span>
       </div>
       <p className="summary">{approval.summary ?? `${approval.userId} requested ${approval.tool}.`}</p>
@@ -675,7 +655,7 @@ function PoliciesView({ data, refresh }: { data: ControlRoomPayload; refresh: ()
       <div className="policyMatrix">
         <div className="policyHead">Server</div>
         <div className="policyHead">Global</div>
-        <div className="policyHead">Team overrides</div>
+        <div className="policyHead">User overrides</div>
         <div className="policyHead">User overrides</div>
         {draft.map((server) => (
           <React.Fragment key={server.id}>
@@ -711,31 +691,29 @@ function PoliciesView({ data, refresh }: { data: ControlRoomPayload; refresh: ()
 function TokenCostOptimiserPage() {
   const [traces, setTraces] = useState<TokenCostOptimisationTrace[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selectedTrace = traces.find((trace) => trace.id === selectedId) ?? traces[0];
+  const visibleTraces = traces.length ? traces : demoContextTraces();
+  const selectedTrace = visibleTraces.find((trace) => trace.id === selectedId) ?? visibleTraces[0];
   const totals = useMemo(() => {
-    const saved = traces.reduce((sum, trace) => sum + trace.estimatedCostSaved, 0);
-    const before = traces.reduce((sum, trace) => sum + trace.estimatedCostBefore, 0);
-    const after = traces.reduce((sum, trace) => sum + trace.estimatedCostAfter, 0);
-    const averageReduction = traces.length
-      ? traces.reduce((sum, trace) => sum + trace.tokenReductionPercent, 0) / traces.length
+    const removedTokens = visibleTraces.reduce((sum, trace) => sum + tokensSaved(trace), 0);
+    const averageReduction = visibleTraces.length
+      ? visibleTraces.reduce((sum, trace) => sum + trace.tokenReductionPercent, 0) / visibleTraces.length
       : 0;
     return {
-      saved,
-      before,
-      after,
+      removedTokens,
       averageReduction,
-      projectedMonthlySaved: saved * 120
+      requestCount: visibleTraces.length
     };
-  }, [traces]);
+  }, [visibleTraces]);
   const chartData = useMemo(() => {
-    const source = traces.slice(0, 7).reverse();
+    const source = visibleTraces.slice(0, 8).reverse();
     return source.map((trace, index) => ({
       name: source.length <= 1 ? "Latest" : `Req ${index + 1}`,
-      naive: Number(trace.estimatedCostBefore.toFixed(2)),
-      optimised: Number(trace.estimatedCostAfter.toFixed(2)),
-      saved: Number(trace.estimatedCostSaved.toFixed(2))
+      indexed: trace.naiveTokens,
+      selected: trace.optimisedTokens,
+      removed: tokensSaved(trace)
     }));
-  }, [traces]);
+  }, [visibleTraces]);
+  const removedFiles = traceRemovedFiles(selectedTrace);
 
   async function refreshOptimisations() {
     const response = await fetch("/api/token-cost-optimisations");
@@ -750,159 +728,231 @@ function TokenCostOptimiserPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  if (!selectedTrace) {
-    return (
-      <section className="tokenPage">
-        <div className="dashboardHeader">
-          <div className="dashboardTitle">
-            <span className="sectionLabel">Workspace index</span>
-            <h1>Token Cost Optimiser</h1>
-            <p>Request-time context selection and token savings for MCP tool calls.</p>
-          </div>
-          <button onClick={refreshOptimisations}><RefreshCw size={16} />Refresh</button>
-        </div>
-        <EmptyState
-          title="No request-time optimisation logs yet."
-          text="Call an MCP tool from Lovable, Cursor, Claude, or another app to generate a trace."
-        />
-      </section>
-    );
-  }
-
   return (
     <section className="tokenPage">
       <div className="dashboardHeader">
         <div className="dashboardTitle">
-          <span className="sectionLabel">Personal Files index</span>
-          <h1>Token Cost Optimiser</h1>
-          <p>Request-time context selection and token savings for MCP tool calls.</p>
+          <h1>Token Optimiser</h1>
+          <p>Context traces for MCP calls: indexed context, selected payload, and removed low-signal context.</p>
         </div>
-        <button onClick={refreshOptimisations}><RefreshCw size={16} />Refresh</button>
-      </div>
-
-      <div className="tokenMetricGrid">
-        <OptimiserMetric icon={<CircleDollarSign size={18} />} label="Total Saved" value={formatCurrency(totals.saved)} detail="From recorded MCP requests" />
-        <OptimiserMetric icon={<Activity size={18} />} label="Requests Optimised" value={formatNumber(traces.length)} detail="Request-time MCP tool calls" />
-        <OptimiserMetric icon={<TrendingDown size={18} />} label="Avg Reduction" value={`${totals.averageReduction.toFixed(1)}%`} detail="Naive tokens removed" />
-        <OptimiserMetric icon={<ShieldCheck size={18} />} label="Active Trace Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} detail="Selected log entry" />
       </div>
 
       <section className="tokenPanel chartPanel">
         <div className="panelTitleRow">
           <div>
-            <span className="sectionLabel">Cost savings projection</span>
-            <h2>Naive vs optimised request costs</h2>
+            <span className="sectionLabel">Context trace volume</span>
+            <h2>Indexed vs selected payload</h2>
           </div>
-          <span className="projectionPill">{formatCurrency(totals.projectedMonthlySaved)} projected monthly</span>
+          <span className="projectionPill">{formatCompactTokens(totals.removedTokens)} removed</span>
         </div>
         <div className="chartSurface">
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={180}>
             <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
               <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#777169" }} />
-              <YAxis tick={{ fontSize: 12, fill: "#777169" }} tickFormatter={(value) => `$${value}`} />
-              <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+              <YAxis tick={{ fontSize: 12, fill: "#777169" }} tickFormatter={(value) => formatCompactTokens(Number(value))} />
+              <Tooltip formatter={(value: number) => `${formatNumber(Number(value))} tokens`} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="naive" name="Naive context" fill="#fb923c" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="optimised" name="Optimised context" fill="#2563eb" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="saved" name="Saved" fill="#0f9f6e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="indexed" name="Indexed" fill="#b1b0b0" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="selected" name="Selected" fill="#0447ff" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="removed" name="Removed" fill="#000000" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </section>
 
-      <section className="tokenMainGrid">
-        <section className="tokenPanel logPanel">
-          <div className="panelTitleRow">
-            <div>
-              <span className="sectionLabel">Request-time optimisation logs</span>
-              <h2>Request-time logs</h2>
-            </div>
+      <section className="tokenPanel logPanel">
+        <div className="panelTitleRow">
+          <div>
+            <span className="sectionLabel">Recent calls</span>
+            <h2>Context traces</h2>
           </div>
-          <div className="tokenTableWrap">
-            <table className="tokenTable">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>App</th>
-                  <th>Tool</th>
-                  <th>Indexed</th>
-                  <th>Selected</th>
-                  <th>Naive Tokens</th>
-                  <th>Optimised Tokens</th>
-                  <th>Reduction</th>
-                  <th>Cost Saved</th>
-                  <th>Status</th>
+          <span className="projectionPill">{formatNumber(totals.requestCount)} requests</span>
+        </div>
+        <div className="tokenTableWrap">
+          <table className="tokenTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>MCP</th>
+                <th>Tool</th>
+                <th className="right">Indexed</th>
+                <th className="right">Selected</th>
+                <th className="right">Removed</th>
+                <th className="right">Reduction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTraces.map((trace) => (
+                <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
+                  <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
+                  <td>{mcpName(trace.toolName)}</td>
+                  <td className="mono">{trace.toolName}</td>
+                  <td className="right">{formatNumber(trace.naiveTokens)}</td>
+                  <td className="right">{formatNumber(trace.optimisedTokens)}</td>
+                  <td className="right">{formatNumber(tokensSaved(trace))}</td>
+                  <td className="right">{trace.tokenReductionPercent}%</td>
                 </tr>
-              </thead>
-              <tbody>
-                {traces.map((trace) => (
-                  <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
-                    <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
-                    <td>{trace.appName}</td>
-                    <td className="mono">{trace.toolName}</td>
-                    <td>{formatNumber(trace.indexedFiles)}</td>
-                    <td>{formatNumber(trace.selectedFiles.length)}</td>
-                    <td>{formatNumber(trace.naiveTokens)}</td>
-                    <td>{formatNumber(trace.optimisedTokens)}</td>
-                    <td>{trace.tokenReductionPercent}%</td>
-                    <td>{formatCurrency(trace.estimatedCostSaved)}</td>
-                    <td><StatusBadge status="optimised" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <section className="tokenPanel detailPanel">
-          <div className="panelTitleRow">
-            <div>
-              <span className="sectionLabel">Latest MCP request optimisation</span>
-              <h2>{selectedTrace.requestSummary}</h2>
+      <section className="tokenPanel detailPanel">
+        <div className="panelTitleRow">
+          <div>
+            <span className="sectionLabel">Context trace</span>
+            <h2>{selectedTrace.requestSummary}</h2>
+          </div>
+          <span className="projectionPill">{mcpName(selectedTrace.toolName)}</span>
+        </div>
+        <div className="latestRequestGrid">
+          <LatestItem label="Indexed" value={`${formatNumber(selectedTrace.naiveTokens)} tokens`} />
+          <LatestItem label="Selected" value={`${formatNumber(selectedTrace.optimisedTokens)} tokens`} />
+          <LatestItem label="Removed" value={`${formatNumber(tokensSaved(selectedTrace))} tokens`} />
+          <LatestItem label="Reduction" value={`${selectedTrace.tokenReductionPercent}%`} />
+        </div>
+        <div className="tokenFlow">
+          <FlowStep label="Candidate context" value={`${formatNumber(selectedTrace.indexedFiles)} items`} />
+          <FlowStep label="Agent-ready payload" value={`${selectedTrace.selectedFiles.length} items`} />
+          <FlowStep label="Removed context" value={`${formatNumber(selectedTrace.ignoredFiles)} items`} />
+        </div>
+        <div className="contextTraceGrid">
+          <div className="contextTraceColumn">
+            <div className="selectedHeader">
+              <span className="sectionLabel">Agent-ready payload</span>
+              <span className="ignoredBadge">{formatNumber(selectedTrace.optimisedTokens)} tokens</span>
             </div>
-            <StatusBadge status="optimised" />
+            <div className="selectedFiles">
+              {selectedTrace.selectedFiles.map((file) => (
+                <article className="selectedFile" key={file.id}>
+                  <FileText size={18} />
+                  <div>
+                    <h3>{file.title}</h3>
+                    <span className="mono">{file.path}</span>
+                    <p>{file.reason}</p>
+                  </div>
+                  <strong>{formatNumber(file.tokenCount)}</strong>
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="latestRequestGrid">
-            <LatestItem label="App" value={selectedTrace.appName} />
-            <LatestItem label="Tool called" value={selectedTrace.toolName} mono />
-            <LatestItem label="Naive context" value={`${formatNumber(selectedTrace.naiveTokens)} tokens`} />
-            <LatestItem label="Optimised context" value={`${formatNumber(selectedTrace.optimisedTokens)} tokens`} />
+          <div className="contextTraceColumn">
+            <div className="selectedHeader">
+              <span className="sectionLabel">Removed context</span>
+              <span className="ignoredBadge">{formatNumber(tokensSaved(selectedTrace))} tokens</span>
+            </div>
+            <div className="selectedFiles">
+              {removedFiles.map((file) => (
+                <article className="selectedFile removed" key={file.id}>
+                  <FileText size={18} />
+                  <div>
+                    <h3>{file.title}</h3>
+                    <span className="mono">{file.path}</span>
+                    <p>{file.reason}</p>
+                  </div>
+                  <strong>{formatNumber(file.tokenCount)}</strong>
+                </article>
+              ))}
+              <div className="tokenSentence">
+                Candidate context started at {formatCompactTokens(selectedTrace.naiveTokens)} tokens. The gateway prepared {formatCompactTokens(selectedTrace.optimisedTokens)} tokens for the agent.
+              </div>
+            </div>
           </div>
-          <div className="expenseGrid">
-            <CostRow label="Before" value={formatCurrency(selectedTrace.estimatedCostBefore)} />
-            <CostRow label="After" value={formatCurrency(selectedTrace.estimatedCostAfter)} />
-            <CostRow label="Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} strong />
-          </div>
-          <div className="tokenFlow">
-            <FlowStep label="Workspace index" value={`${formatNumber(selectedTrace.indexedFiles)} files`} />
-            <FlowStep label="Selected context" value={`${selectedTrace.selectedFiles.length} high-signal files`} />
-            <FlowStep label="Ignored irrelevant files" value={`${formatNumber(selectedTrace.ignoredFiles)} files`} />
-          </div>
-          <div className="selectedHeader">
-            <span className="sectionLabel">Selected context</span>
-            <span className="ignoredBadge">{selectedTrace.ignoredFiles} files ignored</span>
-          </div>
-          <div className="selectedFiles">
-            {selectedTrace.selectedFiles.map((file) => (
-              <article className="selectedFile" key={file.id}>
-                <FileText size={18} />
-                <div>
-                  <h3>{file.title}</h3>
-                  <span className="mono">{file.path}</span>
-                  <p>{file.reason}</p>
-                </div>
-                <strong>{formatNumber(file.tokenCount)} tokens</strong>
-              </article>
-            ))}
-          </div>
-          <div className="tokenSentence">
-            Reduced context from {formatCompactTokens(selectedTrace.naiveTokens)} tokens to {formatCompactTokens(selectedTrace.optimisedTokens)} tokens.
-          </div>
-        </section>
+        </div>
       </section>
     </section>
   );
+}
+
+function demoContextTraces(): TokenCostOptimisationTrace[] {
+  const base = Date.now();
+  return [
+    {
+      id: "demo-brand-assets",
+      createdAt: new Date(base - 38_000).toISOString(),
+      appName: "demo-runner",
+      toolName: "brand_assets.get_brand_kit",
+      requestSummary: "Get Brand Assets context for Violet Labs",
+      indexedFiles: 9,
+      selectedFiles: [
+        { id: "demo-brand-colors", title: "Violet Labs approved colours", path: "brand_assets.kit.colors", tokenCount: 220, reason: "Required for brand-safe portal output." },
+        { id: "demo-brand-components", title: "Portal component notes", path: "brand_assets.components.portal", tokenCount: 310, reason: "Relevant reusable design context for the requested portal." }
+      ],
+      removedFiles: [
+        { id: "demo-brand-archive", title: "Campaign archive", path: "brand_assets.archive.campaigns", tokenCount: 720, reason: "Campaign archive is too broad for this MCP call." },
+        { id: "demo-brand-legacy", title: "Legacy logo variants", path: "brand_assets.logos.legacy", tokenCount: 460, reason: "Legacy assets are low-signal for agent-ready payload." }
+      ],
+      ignoredFiles: 7,
+      naiveTokens: 1980,
+      optimisedTokens: 530,
+      tokenReductionPercent: 73.2,
+      status: "optimised"
+    },
+    {
+      id: "demo-hubspot",
+      createdAt: new Date(base - 78_000).toISOString(),
+      appName: "demo-runner",
+      toolName: "hubspot.search_contacts",
+      requestSummary: "Search HubSpot CRM for Violet Labs",
+      indexedFiles: 14,
+      selectedFiles: [
+        { id: "demo-hubspot-company", title: "Violet Labs company profile", path: "hubspot.companies.violet_labs", tokenCount: 360, reason: "Primary CRM entity for the search request." },
+        { id: "demo-hubspot-contacts", title: "Decision-maker contacts", path: "hubspot.contacts.lifecycle_customer", tokenCount: 410, reason: "Matches contact search intent without unrelated records." }
+      ],
+      removedFiles: [
+        { id: "demo-hubspot-tickets", title: "Historic support tickets", path: "hubspot.tickets.closed", tokenCount: 820, reason: "Closed ticket history is not needed for contact search." },
+        { id: "demo-hubspot-campaigns", title: "Marketing list membership", path: "hubspot.lists.enterprise_accounts", tokenCount: 520, reason: "Campaign membership is low-signal for this call." }
+      ],
+      ignoredFiles: 12,
+      naiveTokens: 3140,
+      optimisedTokens: 770,
+      tokenReductionPercent: 75.5,
+      status: "optimised"
+    },
+    {
+      id: "demo-supabase",
+      createdAt: new Date(base - 128_000).toISOString(),
+      appName: "demo-runner",
+      toolName: "supabase.query",
+      requestSummary: "Query Supabase customer portal context",
+      indexedFiles: 11,
+      selectedFiles: [
+        { id: "demo-supabase-usage", title: "Portal usage summary", path: "supabase.customer_portal_usage", tokenCount: 380, reason: "Directly supports account usage context for the MCP request." },
+        { id: "demo-supabase-schema", title: "Query schema note", path: "supabase.schema.customer_portal_context", tokenCount: 210, reason: "Keeps the agent aligned to the allowed query shape." }
+      ],
+      removedFiles: [
+        { id: "demo-supabase-events", title: "Raw event stream sample", path: "supabase.portal_events", tokenCount: 690, reason: "Raw event stream is too noisy for agent-ready context." },
+        { id: "demo-supabase-audit", title: "Audit history", path: "supabase.audit_log", tokenCount: 410, reason: "Audit rows do not answer the current request." }
+      ],
+      ignoredFiles: 9,
+      naiveTokens: 2460,
+      optimisedTokens: 590,
+      tokenReductionPercent: 76,
+      status: "optimised"
+    }
+  ];
+}
+
+function traceRemovedFiles(trace: TokenCostOptimisationTrace) {
+  if (trace.removedFiles?.length) {
+    return trace.removedFiles;
+  }
+  return [{
+    id: `${trace.id}-removed-summary`,
+    title: "Low-signal candidate context",
+    path: `${mcpName(trace.toolName).toLowerCase().replace(/\s+/g, "_")}.candidate_context`,
+    tokenCount: tokensSaved(trace),
+    reason: "Broad context was removed before creating the agent-ready payload."
+  }];
+}
+
+function mcpName(toolName: string) {
+  if (toolName === "supabase.query" || toolName === "prod_db.query") return "Supabase";
+  if (toolName.startsWith("hubspot.")) return "HubSpot";
+  if (toolName.startsWith("brand_assets.")) return "Brand Assets";
+  return "MCP";
 }
 
 function LatestItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -915,10 +965,6 @@ function FlowStep({ label, value }: { label: string; value: string }) {
 
 function OptimiserMetric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
   return <div className="optimiserMetric"><div>{icon}<span>{label}</span></div><strong>{value}</strong><small>{detail}</small></div>;
-}
-
-function CostRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <div className={strong ? "costRow strong" : "costRow"}><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function InstallView({ data, copy, refresh }: { data: ControlRoomPayload; copy: (value: string, label: string) => Promise<void>; refresh: () => Promise<void> }) {
@@ -1113,12 +1159,16 @@ function policyLabel(value: UiDecision) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function initials(name: string) {
+  return name.split(" ").map((part) => part.charAt(0).toUpperCase()).join("").slice(0, 2);
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-function formatCurrency(value: number) {
-  return `$${value.toFixed(2)}`;
+function tokensSaved(trace: TokenCostOptimisationTrace) {
+  return Math.max(0, trace.naiveTokens - trace.optimisedTokens);
 }
 
 function formatCompactTokens(value: number) {

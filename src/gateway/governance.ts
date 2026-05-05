@@ -38,60 +38,44 @@ const defaultPolicies: PolicyRule[] = [
     reason: "Global policy requires approval for write tools."
   },
   {
-    id: "team-contractors-deny-github-issues",
-    scope: "team",
-    subjectId: "contractors",
-    tool: "github.create_issue",
-    decision: "deny",
-    reason: "Contractors cannot create GitHub issues."
-  },
-  {
-    id: "user-admin-allow-github-issues",
+    id: "user-fred-haris-allow-brand-assets",
     scope: "user",
-    subjectId: "admin",
-    tool: "github.create_issue",
-    decision: "allow",
-    reason: "Admin user can run the demo write action directly."
-  },
-  {
-    id: "global-client-portal-approval",
-    scope: "global",
-    subjectId: "*",
-    tool: "client_portal.create",
-    decision: "approval",
-    reason: "Client portal creation must be reviewed because it requests multiple business systems."
-  },
-  {
-    id: "team-interns-deny-hubspot",
-    scope: "team",
-    subjectId: "interns",
-    tool: "hubspot.search_contacts",
-    decision: "deny",
-    reason: "Interns cannot access customer CRM data."
-  },
-  {
-    id: "team-interns-deny-prod-db",
-    scope: "team",
-    subjectId: "interns",
-    tool: "prod_db.query",
-    decision: "deny",
-    reason: "Interns cannot query production customer data."
-  },
-  {
-    id: "team-interns-approval-canva",
-    scope: "team",
-    subjectId: "interns",
-    tool: "canva_ai.create_client_portal_asset",
-    decision: "approval",
-    reason: "Canva AI can be approved for safe creative generation."
-  },
-  {
-    id: "team-interns-allow-brand-assets",
-    scope: "team",
-    subjectId: "interns",
+    subjectId: "fred.haris",
     tool: "brand_assets.get_brand_kit",
     decision: "allow",
-    reason: "Brand assets are approved design context for portal generation."
+    reason: "Fred Haris can use approved brand context."
+  },
+  {
+    id: "user-max-epstein-approval-hubspot",
+    scope: "user",
+    subjectId: "max.epstein",
+    tool: "hubspot.search_contacts",
+    decision: "approval",
+    reason: "Max Epstein needs approval before reading CRM data."
+  },
+  {
+    id: "user-liberty-jacobs-deny-prod-db",
+    scope: "user",
+    subjectId: "liberty.jacobs",
+    tool: "prod_db.query",
+    decision: "deny",
+    reason: "Liberty Jacobs cannot query production data."
+  },
+  {
+    id: "user-hugh-thomas-approval-prod-db",
+    scope: "user",
+    subjectId: "hugh.thomas",
+    tool: "prod_db.query",
+    decision: "approval",
+    reason: "Hugh Thomas needs approval before querying production data."
+  },
+  {
+    id: "user-hugh-thomas-allow-brand-assets",
+    scope: "user",
+    subjectId: "hugh.thomas",
+    tool: "brand_assets.list_assets",
+    decision: "allow",
+    reason: "Hugh Thomas can list approved brand assets."
   }
 ];
 
@@ -222,9 +206,9 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     id: nanoid(),
     userId: actor.userId,
     teamId: actor.teamId,
-    requester: `${actor.userId}@company.io`,
-    requesterName: actor.userId === "intern" ? "Sam (Intern)" : actor.userId,
-    requesterTeam: actor.teamId,
+    requester: actor.userId.includes("@") ? actor.userId : `${actor.userId}@company.io`,
+    requesterName: actor.userId.split(".").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "),
+    requesterTeam: "Users",
     source: "Lovable",
     tool: "client_portal.create",
     input,
@@ -232,7 +216,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     createdAt: new Date().toISOString(),
     requestedServers: [...new Set(requestedTools.map((tool) => tool.server))],
     requestedTools,
-    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, prod DB, and Canva AI.`
+    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, Spabase Prod, and Brand Assets.`
   };
   approvals.push(request);
   await writeApprovals(approvals);
@@ -244,7 +228,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     status: "pending",
     policyTrace: trace,
     approvalId: request.id,
-    reason: "Queued bundled approval for HubSpot, prod DB, and Canva AI."
+    reason: "Queued bundled approval for HubSpot, Spabase Prod, and Brand Assets."
   });
   return request;
 }
@@ -312,10 +296,12 @@ export async function auditToolResult(actor: ActorContext, tool: string, input: 
 async function ensurePolicies() {
   try {
     const existing = JSON.parse(await readFile(policiesPath, "utf8")) as PolicyRule[];
-    const existingIds = new Set(existing.map((policy) => policy.id));
+    const validTools = new Set(["hubspot.search_contacts", "brand_assets.get_brand_kit", "brand_assets.list_assets", "prod_db.query"]);
+    const retained = existing.filter((policy) => policy.scope !== "team" && (!policy.tool || validTools.has(policy.tool)));
+    const existingIds = new Set(retained.map((policy) => policy.id));
     const missing = defaultPolicies.filter((policy) => !existingIds.has(policy.id));
-    if (missing.length > 0) {
-      await replacePolicies([...existing, ...missing]);
+    if (missing.length > 0 || retained.length !== existing.length) {
+      await replacePolicies([...retained, ...missing]);
     }
   } catch {
     await replacePolicies(defaultPolicies);

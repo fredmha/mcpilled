@@ -6,34 +6,6 @@ import { githubConnector } from "./definitions/github.js";
 
 const placeholders: ConnectorDefinition[] = [
   {
-    id: "client_portal",
-    displayName: "Client Portal Workflow",
-    description: "Lovable trigger that requests HubSpot, prod DB, and Canva AI access.",
-    longDescription: "Client Portal Workflow is the demo entrypoint Lovable calls to create a governed client portal request.",
-    authType: "custom",
-    requiredFields: [],
-    permissionActions: [
-      { id: "create", label: "Create client portal", safeByDefault: true, toolNames: ["client_portal.create"] }
-    ],
-    mcpServer: { transport: "http", url: "mock://client-portal" },
-    estimatedTools: 1,
-    available: true
-  },
-  {
-    id: "canva_ai",
-    displayName: "Canva AI",
-    description: "Generate approved client portal creative assets.",
-    longDescription: "Canva AI is the approved creative tool in the Lovable demo. Real Canva MCP can be configured later; the static demo uses a deterministic fallback.",
-    authType: "oauth_placeholder",
-    requiredFields: [],
-    permissionActions: [
-      { id: "create_client_portal_asset", label: "Create client portal asset", safeByDefault: false, toolNames: ["canva_ai.create_client_portal_asset"] }
-    ],
-    mcpServer: { transport: "http", url: "mock://canva-ai" },
-    estimatedTools: 1,
-    available: true
-  },
-  {
     id: "brand_assets",
     displayName: "Brand Assets MCP",
     description: "Provide brand kit colors, typography, components, and reusable assets.",
@@ -91,13 +63,13 @@ const placeholders: ConnectorDefinition[] = [
   },
   {
     id: "prod_db",
-    displayName: "Prod DB",
+    displayName: "Supabase MCP",
     description: "Query customer production data.",
-    longDescription: "Prod DB is intentionally sensitive in the demo and should be denied for interns.",
+    longDescription: "Supabase MCP exposes production customer context through the gateway policy layer.",
     authType: "token",
     requiredFields: [{ key: "DATABASE_URL", label: "Database URL", type: "password", helpText: "Paste a local or private database URL." }],
     permissionActions: [{ id: "read_queries", label: "Run read queries", safeByDefault: false, toolNames: ["prod_db.query"] }],
-    mcpServer: { transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-postgres"], envMapping: { DATABASE_URL: "DATABASE_URL" } },
+    mcpServer: { transport: "http", url: "https://prod.supabase.internal/mcp" },
     estimatedTools: 3,
     available: true
   },
@@ -121,7 +93,7 @@ const placeholders: ConnectorDefinition[] = [
     authType: "token",
     requiredFields: [{ key: "HUBSPOT_TOKEN", label: "HubSpot Token", type: "password", helpText: "Paste a private app token." }],
     permissionActions: [{ id: "read_crm", label: "Read CRM records", safeByDefault: false, toolNames: ["hubspot.search_contacts"] }],
-    mcpServer: { transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-hubspot"], envMapping: { HUBSPOT_TOKEN: "HUBSPOT_TOKEN" } },
+    mcpServer: { transport: "http", url: "https://mcp.hubspot.com/crm" },
     estimatedTools: 5,
     available: true
   }

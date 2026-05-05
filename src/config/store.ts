@@ -18,6 +18,36 @@ export function createInstallToken() {
   return `mgi_${nanoid(36)}`;
 }
 
+const managedConnectors: StoredConnector[] = [
+  {
+    id: "hubspot",
+    enabled: true,
+    status: "connected",
+    toolCount: 1,
+    allowedTools: ["hubspot.search_contacts"],
+    displayNameOverride: "HubSpot CRM MCP",
+    mcpServer: { transport: "http", url: "https://mcp.hubspot.com/crm" }
+  },
+  {
+    id: "brand_assets",
+    enabled: true,
+    status: "connected",
+    toolCount: 2,
+    allowedTools: ["brand_assets.get_brand_kit", "brand_assets.list_assets"],
+    displayNameOverride: "Brand Assets MCP",
+    mcpServer: { transport: "stdio", command: "node", args: ["dist/demo/brandAssetsMcp.js"] }
+  },
+  {
+    id: "prod_db",
+    enabled: true,
+    status: "connected",
+    toolCount: 1,
+    allowedTools: ["prod_db.query"],
+    displayNameOverride: "Supabase MCP",
+    mcpServer: { transport: "http", url: "https://prod.supabase.internal/mcp" }
+  }
+];
+
 export async function loadConfig(): Promise<{ config: GatewayConfig; apiKey: string }> {
   if (isDatabaseEnabled()) {
     const existing = await readState<GatewayConfig>("gateway-config");
@@ -61,35 +91,7 @@ function createDefaultConfig() {
         name: "Default Org",
         apiKeyHash: hashApiKey(apiKey),
         apiKeyPreview: previewApiKey(apiKey),
-        connectors: [
-          {
-            id: "github",
-            enabled: true,
-            status: "connected",
-            toolCount: 2,
-            allowedTools: ["github.list_repos", "github.create_issue"],
-            displayNameOverride: "Mock GitHub MCP",
-            mcpServer: { transport: "http", url: "mock://github" }
-          },
-          {
-            id: "notion",
-            enabled: true,
-            status: "connected",
-            toolCount: 1,
-            allowedTools: ["notion.search_pages"],
-            displayNameOverride: "Mock Notion MCP",
-            mcpServer: { transport: "http", url: "mock://notion" }
-          },
-          {
-            id: "gmail",
-            enabled: true,
-            status: "connected",
-            toolCount: 1,
-            allowedTools: ["gmail.search_email"],
-            displayNameOverride: "Mock Gmail MCP",
-            mcpServer: { transport: "http", url: "mock://gmail" }
-          }
-        ],
+        connectors: managedConnectors,
         installProfiles: [createOwnerInstallProfile(apiKey)],
         adminAgent: {
           provider: "openai",
@@ -104,7 +106,7 @@ function createDefaultConfig() {
 }
 
 function migrateConfig(config: GatewayConfig) {
-    for (const space of config.spaces) {
+  for (const space of config.spaces) {
     space.connectors ??= [];
     space.installProfiles ??= [createOwnerInstallProfile()];
     for (const profile of space.installProfiles) {
@@ -116,51 +118,16 @@ function migrateConfig(config: GatewayConfig) {
       modelKeyStored: false
     };
     space.importedMcpServers ??= [];
-    ensureDemoConnector(space, {
-      id: "client_portal",
-      enabled: true,
-      status: "connected",
-      toolCount: 1,
-      allowedTools: ["client_portal.create"],
-      displayNameOverride: "Lovable Client Portal Workflow",
-      mcpServer: { transport: "http", url: "mock://client-portal" }
-    });
-    ensureDemoConnector(space, {
-      id: "hubspot",
-      enabled: true,
-      status: "connected",
-      toolCount: 1,
-      allowedTools: ["hubspot.search_contacts"],
-      displayNameOverride: "HubSpot CRM",
-      mcpServer: { transport: "http", url: "mock://hubspot" }
-    });
-    ensureDemoConnector(space, {
-      id: "prod_db",
-      enabled: true,
-      status: "connected",
-      toolCount: 1,
-      allowedTools: ["prod_db.query"],
-      displayNameOverride: "Production Database",
-      mcpServer: { transport: "http", url: "mock://prod-db" }
-    });
-    ensureDemoConnector(space, {
-      id: "canva_ai",
-      enabled: true,
-      status: "connected",
-      toolCount: 1,
-      allowedTools: ["canva_ai.create_client_portal_asset"],
-      displayNameOverride: "Canva AI",
-      mcpServer: { transport: "http", url: "mock://canva-ai" }
-    });
-    ensureDemoConnector(space, {
-      id: "brand_assets",
-      enabled: true,
-      status: "connected",
-      toolCount: 2,
-      allowedTools: ["brand_assets.get_brand_kit", "brand_assets.list_assets"],
-      displayNameOverride: "Brand Assets MCP",
-      mcpServer: { transport: "stdio", command: "node", args: ["dist/demo/brandAssetsMcp.js"] }
-    });
+    const managedById = new Map(managedConnectors.map((connector) => [connector.id, connector]));
+    space.connectors = space.connectors.filter((connector) => managedById.has(connector.id));
+    for (const connector of managedConnectors) {
+      const existing = space.connectors.find((candidate) => candidate.id === connector.id);
+      if (existing) {
+        Object.assign(existing, connector);
+      } else {
+        space.connectors.push({ ...connector });
+      }
+    }
   }
   return config;
 }
@@ -169,12 +136,6 @@ function applyRuntimeGatewayPort(config: GatewayConfig) {
   const runtimePort = Number(process.env.PORT ?? process.env.MCP_GATEWAY_PORT);
   if (Number.isFinite(runtimePort) && runtimePort > 0) {
     config.gateway.port = runtimePort;
-  }
-}
-
-function ensureDemoConnector(space: Space, connector: StoredConnector) {
-  if (!space.connectors.some((candidate) => candidate.id === connector.id)) {
-    space.connectors.push(connector);
   }
 }
 

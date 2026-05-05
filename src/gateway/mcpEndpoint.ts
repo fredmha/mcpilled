@@ -72,10 +72,6 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
       }
       if (body.method === "tools/call") {
         const params = body.params as { name?: string; arguments?: Record<string, unknown> };
-        const result = await handleToolCall(config, params.name ?? "", params.arguments ?? {}, req.header("x-client-name") ?? installProfile.name, installProfile, {
-          userId: req.header("x-user-id") ?? "demo-user",
-          teamId: req.header("x-team-id") ?? "engineering"
-        });
         let optimisation;
         try {
           optimisation = await recordTokenCostOptimisation({
@@ -86,6 +82,10 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
         } catch (error) {
           console.warn("Token cost optimiser failed", error);
         }
+        const result = await handleToolCall(config, params.name ?? "", params.arguments ?? {}, req.header("x-client-name") ?? installProfile.name, installProfile, {
+          userId: req.header("x-user-id") ?? "fred.haris",
+          teamId: req.header("x-team-id") ?? "users"
+        });
         const responseResult = optimisation && result && typeof result === "object" && !Array.isArray(result)
           ? { ...result, optimisation }
           : result;

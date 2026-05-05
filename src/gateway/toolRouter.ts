@@ -15,7 +15,7 @@ export async function handleToolList(config: GatewayConfig) {
   };
 }
 
-export async function handleToolCall(config: GatewayConfig, toolName: string, args: Record<string, unknown>, client = "AI assistant", installProfile?: InstallProfile, actor: ActorContext = { userId: "demo-user", teamId: "engineering" }) {
+export async function handleToolCall(config: GatewayConfig, toolName: string, args: Record<string, unknown>, client = "AI assistant", installProfile?: InstallProfile, actor: ActorContext = { userId: "fred.haris", teamId: "users" }) {
   const started = Date.now();
   const space = config.spaces[0];
   const connectorId = toolName.split(".")[0];
@@ -37,10 +37,10 @@ export async function handleToolCall(config: GatewayConfig, toolName: string, ar
   if (toolName === "client_portal.create") {
     const requestedTools = clientPortalRequestedTools(args);
     const approval = await queueWorkflowApproval(
-      { userId: actor.userId === "demo-user" ? "intern" : actor.userId, teamId: actor.teamId === "engineering" ? "interns" : actor.teamId },
+      { userId: actor.userId, teamId: "users" },
       args,
       requestedTools,
-      ["workflow:client_portal.create:approval", "hubspot:sensitive:deny", "prod_db:sensitive:deny", "canva_ai:creative:approval"]
+      ["workflow:client_portal.create:approval", "hubspot:crm:approval", "prod_db:production:approval", "brand_assets:approved:allow"]
     );
     await logActivity({
       client,
@@ -53,7 +53,7 @@ export async function handleToolCall(config: GatewayConfig, toolName: string, ar
       detail: `Pending bundled approval ${approval.id}`
     });
     return {
-      content: [{ type: "text", text: `Approval required. Review bundled request ${approval.id}; only Canva AI should be approved for this demo.` }],
+      content: [{ type: "text", text: `Approval required. Review bundled request ${approval.id} for HubSpot, Supabase, and Brand Assets access.` }],
       approval: { id: approval.id, status: approval.status, requestedTools }
     };
   }
@@ -178,16 +178,8 @@ export function clientPortalRequestedTools(args: Record<string, unknown>) {
       tool: "prod_db.query",
       reason: `Query production usage and billing data for ${clientName}.`,
       flagReason: "Production database contains customer-sensitive data.",
-      currentPolicy: "deny" as const,
-      input: { sql: "select * from customer_portal_context where client_name = $1", params: [clientName] }
-    },
-    {
-      server: "canva_ai",
-      tool: "canva_ai.create_client_portal_asset",
-      reason: `Generate safe branded portal creative for: ${portalGoal}`,
-      flagReason: "Creative generation does not require customer-sensitive source data.",
       currentPolicy: "require_approval" as const,
-      input: { clientName, portalGoal, assetType: "client_portal_mockup" }
+      input: { sql: "select * from customer_portal_context where client_name = $1", params: [clientName] }
     },
     {
       server: "brand_assets",
@@ -420,10 +412,13 @@ async function executeHubSpotTool(toolName: string, args: Record<string, unknown
     throw new Error(`Unsupported HubSpot action: ${toolName}`);
   }
   return textResult(JSON.stringify({
-    source: "mock-hubspot-mcp",
+    source: "hubspot-crm-mcp",
     query: typeof args.query === "string" ? args.query : "",
-    blockedInDemo: true,
-    reason: "HubSpot contains customer-sensitive CRM data."
+    connection: "connected",
+    records: [
+      { id: "hs_contact_10291", type: "contact", email: "ops@violetlabs.example", lifecycleStage: "customer" },
+      { id: "hs_company_8891", type: "company", name: "Violet Labs", owner: "Max Epstein" }
+    ]
   }, null, 2));
 }
 
@@ -432,10 +427,12 @@ async function executeProdDbTool(toolName: string, args: Record<string, unknown>
     throw new Error(`Unsupported Prod DB action: ${toolName}`);
   }
   return textResult(JSON.stringify({
-    source: "mock-prod-db-mcp",
+    source: "supabase-mcp",
     sql: typeof args.sql === "string" ? args.sql : "",
-    blockedInDemo: true,
-    reason: "Production database contains customer-sensitive data."
+    connection: "connected",
+    rows: [
+      { client_name: "Violet Labs", active_users: 1482, plan: "enterprise", health_score: 91 }
+    ]
   }, null, 2));
 }
 
