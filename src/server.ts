@@ -378,13 +378,7 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
   }
   const decisions = normalizeToolDecisions(req.body.decisions);
   const requestedTools = existing.tool === "gateway.install"
-    ? [{
-        server: "gateway",
-        tool: "gateway.install",
-        reason: "Install approval is required before this MCP endpoint can expose tools.",
-        flagReason: "Unapproved MCP install attempted to use the gateway.",
-        currentPolicy: "require_approval" as const
-      }]
+    ? (existing.requestedTools?.length ? existing.requestedTools : installApprovalRequestedTools(existing.input))
     : existing.requestedTools?.length ? existing.requestedTools : clientPortalRequestedTools(existing.input);
   const missingDecision = requestedTools.find((tool) => !decisions[tool.tool]);
   if (missingDecision) {
@@ -394,9 +388,11 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
   const decidedAt = new Date().toISOString();
   const results: Record<string, unknown> = {};
   let installDecision: "approved" | "rejected" | null = null;
+  const installApprovalFlow = existing.tool === "gateway.install";
+  const allApproved = requestedTools.every((tool) => decisions[tool.tool] === "approve");
   for (const tool of requestedTools) {
     const actor = { userId: existing.userId, teamId: existing.teamId };
-    const input = tool.input ?? {};
+    const input = (tool as { input?: Record<string, unknown> }).input ?? {};
     if (decisions[tool.tool] === "approve") {
       if (tool.tool === "gateway.install") {
         const activation = await activateInstallApproval(existing.id, existing);
@@ -408,13 +404,18 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
         results[tool.tool] = activation.result;
         await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "install:active"], activation.result, "MCP install approved. Gateway handshakes are now allowed.", existing.id);
       } else {
-        try {
-          const result = await executeApprovedTool(loaded.config, tool.tool, input);
-          results[tool.tool] = result;
-          await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "execution:success"], result, "Approved in bundled workflow.", existing.id);
-        } catch (error) {
-          results[tool.tool] = { error: error instanceof Error ? error.message : "Execution failed." };
-          await auditToolResult(actor, tool.tool, input, "error", [`approval:${existing.id}:approved`, "execution:error"], undefined, error instanceof Error ? error.message : "Execution failed.", existing.id);
+        if (installApprovalFlow) {
+          results[tool.tool] = { status: "approved" };
+          await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "install:review"], { status: "approved" }, "Approved during install endpoint review.", existing.id);
+        } else {
+          try {
+            const result = await executeApprovedTool(loaded.config, tool.tool, input);
+            results[tool.tool] = result;
+            await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "execution:success"], result, "Approved in bundled workflow.", existing.id);
+          } catch (error) {
+            results[tool.tool] = { error: error instanceof Error ? error.message : "Execution failed." };
+            await auditToolResult(actor, tool.tool, input, "error", [`approval:${existing.id}:approved`, "execution:error"], undefined, error instanceof Error ? error.message : "Execution failed.", existing.id);
+          }
         }
       }
     } else {
@@ -430,6 +431,27 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
         continue;
       }
       await auditToolResult(actor, tool.tool, input, "denied", [`approval:${existing.id}:denied`, "sensitive-data:blocked"], undefined, tool.flagReason, existing.id);
+    }
+  }
+  if (installApprovalFlow && installDecision === null) {
+    if (allApproved) {
+      const activation = await activateInstallApproval(existing.id, existing);
+      if (!activation.ok) {
+        res.status(404).json({ ok: false, message: activation.message ?? "Install profile not found for this approval." });
+        return;
+      }
+      installDecision = "approved";
+      results.gateway_install = activation.result;
+      await auditToolResult({ userId: existing.userId, teamId: existing.teamId }, "gateway.install", existing.input, "success", [`approval:${existing.id}:approved`, "install:active"], activation.result, "MCP install approved after endpoint review.", existing.id);
+    } else {
+      const rejection = await rejectInstallApproval(existing.id, existing);
+      if (!rejection.ok) {
+        res.status(404).json({ ok: false, message: rejection.message ?? "Install profile not found for this approval." });
+        return;
+      }
+      installDecision = "rejected";
+      results.gateway_install = rejection.result;
+      await auditToolResult({ userId: existing.userId, teamId: existing.teamId }, "gateway.install", existing.input, "rejected", [`approval:${existing.id}:denied`, "install:blocked"], undefined, "Install approval denied after endpoint review.", existing.id);
     }
   }
   const finalStatus = installDecision ?? "approved";
@@ -702,14 +724,8 @@ registerMcpEndpoint(app, () => loaded.config, {
         requesterName: "External MCP app",
         requesterTeam: "security",
         source: "MCP Gateway",
-        requestedServers: ["gateway"],
-        requestedTools: [{
-          server: "gateway",
-          tool: "gateway.install",
-          reason: "Install approval is required before this MCP endpoint can expose tools.",
-          flagReason: "Unapproved MCP install attempted to use the gateway.",
-          currentPolicy: "require_approval"
-        }],
+        requestedServers: ["hubspot", "prod_db", "brand_assets"],
+        requestedTools: installApprovalRequestedTools({ installProfileName: profile.name }),
         summary: `${profile.name} is waiting for gateway approval.`
       });
       profile.approvalStatus = "pending";
@@ -983,6 +999,7 @@ function uiDecision(decision: PolicyDecision): Exclude<UiPolicyDecision, "inheri
 
 function approvalPayload(approval: ApprovalRequest) {
   if (approval.tool === "gateway.install") {
+    const requestedTools = approval.requestedTools?.length ? approval.requestedTools : installApprovalRequestedTools(approval.input);
     return {
       ...approval,
       requester: approval.requester ?? "External MCP app",
@@ -990,14 +1007,8 @@ function approvalPayload(approval: ApprovalRequest) {
       requesterTeam: approval.requesterTeam ?? "security",
       source: approval.source ?? "MCP Gateway",
       timestamp: approval.createdAt,
-      requestedServers: ["gateway"],
-      requestedTools: [{
-        server: "gateway",
-        tool: "gateway.install",
-        reason: "Install approval is required before this MCP endpoint can expose tools.",
-        flagReason: "Unapproved MCP install attempted to use the gateway.",
-        currentPolicy: "require_approval"
-      }],
+      requestedServers: approval.requestedServers?.length ? approval.requestedServers : [...new Set(requestedTools.map((tool) => tool.server))],
+      requestedTools,
       summary: `${String(approval.input.installProfileName ?? "MCP install")} is waiting for gateway approval.`,
       toolApprovals: {}
     };
@@ -1029,6 +1040,35 @@ function approvalPayload(approval: ApprovalRequest) {
     summary: approval.summary ?? `${approval.userId} requested ${approval.tool}.`,
     toolApprovals: {}
   };
+}
+
+function installApprovalRequestedTools(input: Record<string, unknown>) {
+  const installName = typeof input.installProfileName === "string" && input.installProfileName.trim()
+    ? input.installProfileName.trim()
+    : "Owner install";
+  return [
+    {
+      server: "hubspot",
+      tool: "hubspot.search_contacts",
+      reason: `Validate CRM account and contact context scope for ${installName}.`,
+      flagReason: "Contains customer CRM records and contact details.",
+      currentPolicy: "require_approval" as const
+    },
+    {
+      server: "prod_db",
+      tool: "prod_db.query",
+      reason: `Validate production customer account context scope for ${installName}.`,
+      flagReason: "Production database contains customer-sensitive data.",
+      currentPolicy: "require_approval" as const
+    },
+    {
+      server: "brand_assets",
+      tool: "brand_assets.get_brand_kit",
+      reason: `Validate approved brand context usage for ${installName}.`,
+      flagReason: "Brand context should only be used for approved build requests.",
+      currentPolicy: "require_approval" as const
+    }
+  ];
 }
 
 function installProfilePayload(profile: InstallProfile) {
