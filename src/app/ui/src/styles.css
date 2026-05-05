@@ -675,7 +675,7 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   align-content: start;
   gap: 16px;
 }
-.tokenLatest, .tokenPanel, .optimiserMetric {
+.tokenPanel, .optimiserMetric {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
@@ -684,70 +684,12 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   border-radius: 8px;
   box-shadow: var(--shadow-card);
 }
-.tokenLatest {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
-  gap: 20px;
-  padding: 20px;
-  align-items: stretch;
-}
-.latestCopy { display: grid; align-content: start; gap: 14px; }
 .latestTitleRow, .panelTitleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
 }
-.latestCopy h2 { font-size: 24px; line-height: 1.25; }
-.latestMeta {
-  display: grid;
-  gap: 8px;
-  color: var(--color-gravel);
-  font-size: 14px;
-}
-.latestMeta span {
-  padding: 10px 12px;
-  border: 1px solid var(--color-chalk);
-  border-radius: 8px;
-  background: var(--color-powder);
-}
-.contextBars {
-  border: 1px solid var(--color-chalk);
-  border-radius: 8px;
-  background: var(--color-powder);
-  padding: 16px;
-  display: grid;
-  gap: 14px;
-}
-.contextBars p { color: var(--color-gravel); font-size: 13px; line-height: 1.45; }
-.contextBar { display: grid; gap: 8px; }
-.contextBar > div:first-child {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
-  color: var(--color-gravel);
-  font-size: 13px;
-}
-.contextBar strong, .contextBar em {
-  color: var(--color-obsidian);
-  font-style: normal;
-  white-space: nowrap;
-}
-.barTrack {
-  height: 11px;
-  border-radius: 9999px;
-  background: #ffffff;
-  border: 1px solid var(--color-chalk);
-  overflow: hidden;
-}
-.barTrack span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-obsidian);
-}
-.contextBar:nth-child(2) .barTrack span { background: var(--color-signal-blue); }
 .tokenMetricGrid {
   max-width: 1200px;
   width: 100%;
@@ -756,7 +698,6 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
-.tokenMetricGrid.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .optimiserMetric {
   padding: 16px;
   display: grid;
@@ -775,25 +716,46 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
 }
 .optimiserMetric strong {
   font-family: var(--font-waldenburg);
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 300;
   line-height: 1.1;
 }
 .optimiserMetric small { line-height: 1.35; }
-.tokenOverview {
+.chartPanel {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.projectionPill {
+  border: 1px solid var(--color-chalk);
+  border-radius: 9999px;
+  padding: 7px 11px;
+  background: var(--color-powder);
+  color: var(--color-gravel);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.chartSurface {
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  padding: 10px 12px 2px;
+  background: #ffffff;
+}
+.tokenMainGrid {
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
 }
 .tokenPanel {
   padding: 20px;
   display: grid;
   gap: 16px;
 }
-.latestPanel h2, .spendPanel h2, .logPanel h2, .selectedContextPanel h2 {
+.detailPanel h2, .logPanel h2 {
   font-size: 22px;
   line-height: 1.25;
 }
@@ -827,23 +789,6 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   color: var(--color-gravel);
   font-size: 14px;
 }
-.spendPanel { align-content: start; }
-.spendBars { display: grid; gap: 13px; }
-.spendBar {
-  display: grid;
-  gap: 8px;
-}
-.spendBar > div:first-child {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--color-gravel);
-  font-size: 13px;
-}
-.spendBar.orange .barTrack span { background: #fb923c; }
-.spendBar.blue .barTrack span { background: var(--color-signal-blue); }
-.spendBar.green .barTrack span { background: #12a36d; }
 .expenseGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -870,8 +815,13 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   white-space: nowrap;
   background: var(--color-powder);
 }
+.selectedHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
 .selectedFiles { display: grid; gap: 10px; }
-.selectedFiles.slim { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .selectedFile {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -894,15 +844,6 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   font-size: 13px;
   white-space: nowrap;
 }
-.ignoredLine {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-gravel);
-  font-size: 13px;
-}
-.costPanel { align-content: start; }
-.costRows { display: grid; gap: 8px; }
 .costRow {
   display: flex;
   justify-content: space-between;
@@ -926,8 +867,6 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   background: var(--color-powder);
 }
 .logPanel { overflow: hidden; }
-.logPanel.focused { max-height: 420px; }
-.selectedContextPanel { max-width: 1200px; }
 .tokenTableWrap { overflow: auto; }
 .tokenTable tr { cursor: pointer; }
 .tokenTable tbody tr.active, .tokenTable tbody tr:hover { background: var(--color-powder); }
@@ -1069,8 +1008,8 @@ th { background: var(--color-powder); }
   .approvalWorkspace { grid-template-columns: 1fr; }
   .approvalTabs { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: auto; }
   .activityGrid { grid-template-columns: 1fr; }
-  .installGrid, .tokenOverview { grid-template-columns: 1fr; }
-  .latestRequestGrid, .tokenFlow, .selectedFiles.slim { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .installGrid, .tokenMainGrid { grid-template-columns: 1fr; }
+  .latestRequestGrid, .tokenFlow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .policyMatrix { grid-template-columns: minmax(190px, 1fr); }
   .policyHead { display: none; }
 }
@@ -1107,8 +1046,8 @@ th { background: var(--color-powder); }
   .demoCardHeader { align-items: start; }
   .gatewayDemoCard .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tokenLatest, .tokenSplit, .tokenMetricGrid, .tokenMetricGrid.compact, .latestRequestGrid, .tokenFlow, .selectedFiles.slim, .installMetaGrid, .expenseGrid { grid-template-columns: 1fr; }
-  .contextBar > div:first-child, .selectedFile { grid-template-columns: 1fr; }
+  .tokenMetricGrid, .latestRequestGrid, .tokenFlow, .installMetaGrid, .expenseGrid { grid-template-columns: 1fr; }
+  .selectedFile { grid-template-columns: 1fr; }
   .selectedFile > svg { display: none; }
   .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }
   .pageHeader { align-items: start; }

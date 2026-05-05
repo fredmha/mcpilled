@@ -23,6 +23,16 @@ import {
   TrendingDown,
   XCircle
 } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import type { ApprovalRequest } from "../../../shared/types";
 import "./styles.css";
 
@@ -717,6 +727,15 @@ function TokenCostOptimiserPage() {
       projectedMonthlySaved: saved * 120
     };
   }, [traces]);
+  const chartData = useMemo(() => {
+    const source = traces.slice(0, 7).reverse();
+    return source.map((trace, index) => ({
+      name: source.length <= 1 ? "Latest" : `Req ${index + 1}`,
+      naive: Number(trace.estimatedCostBefore.toFixed(2)),
+      optimised: Number(trace.estimatedCostAfter.toFixed(2)),
+      saved: Number(trace.estimatedCostSaved.toFixed(2))
+    }));
+  }, [traces]);
 
   async function refreshOptimisations() {
     const response = await fetch("/api/token-cost-optimisations");
@@ -750,8 +769,6 @@ function TokenCostOptimiserPage() {
     );
   }
 
-  const maxCost = Math.max(selectedTrace.estimatedCostBefore, selectedTrace.estimatedCostAfter, selectedTrace.estimatedCostSaved);
-
   return (
     <section className="tokenPage">
       <div className="dashboardHeader">
@@ -763,15 +780,82 @@ function TokenCostOptimiserPage() {
         <button onClick={refreshOptimisations}><RefreshCw size={16} />Refresh</button>
       </div>
 
-      <div className="tokenMetricGrid compact">
-        <OptimiserMetric icon={<CircleDollarSign size={18} />} label="Potential Savings" value={formatCurrency(totals.projectedMonthlySaved)} detail="Projected monthly avoided context spend" />
+      <div className="tokenMetricGrid">
+        <OptimiserMetric icon={<CircleDollarSign size={18} />} label="Total Saved" value={formatCurrency(totals.saved)} detail="From recorded MCP requests" />
         <OptimiserMetric icon={<Activity size={18} />} label="Requests Optimised" value={formatNumber(traces.length)} detail="Request-time MCP tool calls" />
-        <OptimiserMetric icon={<TrendingDown size={18} />} label="Average Reduction" value={`${totals.averageReduction.toFixed(1)}%`} detail="Naive tokens removed" />
-        <OptimiserMetric icon={<ShieldCheck size={18} />} label="Active Trace" value={formatCurrency(selectedTrace.estimatedCostSaved)} detail="Saved on selected request" />
+        <OptimiserMetric icon={<TrendingDown size={18} />} label="Avg Reduction" value={`${totals.averageReduction.toFixed(1)}%`} detail="Naive tokens removed" />
+        <OptimiserMetric icon={<ShieldCheck size={18} />} label="Active Trace Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} detail="Selected log entry" />
       </div>
 
-      <section className="tokenOverview">
-        <div className="tokenPanel latestPanel">
+      <section className="tokenPanel chartPanel">
+        <div className="panelTitleRow">
+          <div>
+            <span className="sectionLabel">Cost savings projection</span>
+            <h2>Naive vs optimised request costs</h2>
+          </div>
+          <span className="projectionPill">{formatCurrency(totals.projectedMonthlySaved)} projected monthly</span>
+        </div>
+        <div className="chartSurface">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#777169" }} />
+              <YAxis tick={{ fontSize: 12, fill: "#777169" }} tickFormatter={(value) => `$${value}`} />
+              <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="naive" name="Naive context" fill="#fb923c" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="optimised" name="Optimised context" fill="#2563eb" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="saved" name="Saved" fill="#0f9f6e" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="tokenMainGrid">
+        <section className="tokenPanel logPanel">
+          <div className="panelTitleRow">
+            <div>
+              <span className="sectionLabel">Request-time optimisation logs</span>
+              <h2>Request-time logs</h2>
+            </div>
+          </div>
+          <div className="tokenTableWrap">
+            <table className="tokenTable">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>App</th>
+                  <th>Tool</th>
+                  <th>Indexed</th>
+                  <th>Selected</th>
+                  <th>Naive Tokens</th>
+                  <th>Optimised Tokens</th>
+                  <th>Reduction</th>
+                  <th>Cost Saved</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {traces.map((trace) => (
+                  <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
+                    <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
+                    <td>{trace.appName}</td>
+                    <td className="mono">{trace.toolName}</td>
+                    <td>{formatNumber(trace.indexedFiles)}</td>
+                    <td>{formatNumber(trace.selectedFiles.length)}</td>
+                    <td>{formatNumber(trace.naiveTokens)}</td>
+                    <td>{formatNumber(trace.optimisedTokens)}</td>
+                    <td>{trace.tokenReductionPercent}%</td>
+                    <td>{formatCurrency(trace.estimatedCostSaved)}</td>
+                    <td><StatusBadge status="optimised" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="tokenPanel detailPanel">
           <div className="panelTitleRow">
             <div>
               <span className="sectionLabel">Latest MCP request optimisation</span>
@@ -782,99 +866,40 @@ function TokenCostOptimiserPage() {
           <div className="latestRequestGrid">
             <LatestItem label="App" value={selectedTrace.appName} />
             <LatestItem label="Tool called" value={selectedTrace.toolName} mono />
-            <LatestItem label="Indexed Files" value={formatNumber(selectedTrace.indexedFiles)} />
-            <LatestItem label="Files Selected" value={formatNumber(selectedTrace.selectedFiles.length)} />
-          </div>
-          <div className="tokenFlow">
-            <FlowStep label="Workspace index" value={`${formatNumber(selectedTrace.indexedFiles)} files`} />
-            <FlowStep label="Selected context" value={`${selectedTrace.selectedFiles.length} high-signal files`} />
-            <FlowStep label="Ignored irrelevant files" value={`${formatNumber(selectedTrace.ignoredFiles)} files`} />
-          </div>
-          <div className="tokenSentence">
-            Reduced context from {formatCompactTokens(selectedTrace.naiveTokens)} tokens to {formatCompactTokens(selectedTrace.optimisedTokens)} tokens.
-          </div>
-        </div>
-
-        <div className="tokenPanel spendPanel">
-          <span className="sectionLabel">Cost savings projection</span>
-          <h2>Expense items</h2>
-          <div className="spendBars">
-            <SpendBar label="Naive context" value={selectedTrace.estimatedCostBefore} max={maxCost} tone="orange" />
-            <SpendBar label="Optimised context" value={selectedTrace.estimatedCostAfter} max={maxCost} tone="blue" />
-            <SpendBar label="Saved" value={selectedTrace.estimatedCostSaved} max={maxCost} tone="green" />
+            <LatestItem label="Naive context" value={`${formatNumber(selectedTrace.naiveTokens)} tokens`} />
+            <LatestItem label="Optimised context" value={`${formatNumber(selectedTrace.optimisedTokens)} tokens`} />
           </div>
           <div className="expenseGrid">
             <CostRow label="Before" value={formatCurrency(selectedTrace.estimatedCostBefore)} />
             <CostRow label="After" value={formatCurrency(selectedTrace.estimatedCostAfter)} />
             <CostRow label="Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} strong />
           </div>
-        </div>
-      </section>
-
-      <section className="tokenPanel logPanel focused">
-        <div className="panelTitleRow">
-          <div>
-            <span className="sectionLabel">Request-time optimisation logs</span>
-            <h2>Request-time optimisation logs</h2>
+          <div className="tokenFlow">
+            <FlowStep label="Workspace index" value={`${formatNumber(selectedTrace.indexedFiles)} files`} />
+            <FlowStep label="Selected context" value={`${selectedTrace.selectedFiles.length} high-signal files`} />
+            <FlowStep label="Ignored irrelevant files" value={`${formatNumber(selectedTrace.ignoredFiles)} files`} />
           </div>
-        </div>
-        <div className="tokenTableWrap">
-          <table className="tokenTable">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>App</th>
-                <th>Tool</th>
-                <th>Indexed</th>
-                <th>Selected</th>
-                <th>Naive Tokens</th>
-                <th>Optimised Tokens</th>
-                <th>Reduction</th>
-                <th>Cost Saved</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {traces.map((trace) => (
-                <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
-                  <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
-                  <td>{trace.appName}</td>
-                  <td className="mono">{trace.toolName}</td>
-                  <td>{formatNumber(trace.indexedFiles)}</td>
-                  <td>{formatNumber(trace.selectedFiles.length)}</td>
-                  <td>{formatNumber(trace.naiveTokens)}</td>
-                  <td>{formatNumber(trace.optimisedTokens)}</td>
-                  <td>{trace.tokenReductionPercent}%</td>
-                  <td>{formatCurrency(trace.estimatedCostSaved)}</td>
-                  <td><StatusBadge status="optimised" /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="tokenPanel selectedContextPanel">
-        <div className="panelTitleRow">
-          <div>
+          <div className="selectedHeader">
             <span className="sectionLabel">Selected context</span>
-            <h2>Selected context</h2>
+            <span className="ignoredBadge">{selectedTrace.ignoredFiles} files ignored</span>
           </div>
-          <span className="ignoredBadge">{selectedTrace.ignoredFiles} files ignored</span>
-        </div>
-        <div className="selectedFiles slim">
-          {selectedTrace.selectedFiles.map((file) => (
-            <article className="selectedFile" key={file.id}>
-              <FileText size={18} />
-              <div>
-                <h3>{file.title}</h3>
-                <span className="mono">{file.path}</span>
-                <p>{file.reason}</p>
-              </div>
-              <strong>{formatNumber(file.tokenCount)} tokens</strong>
-            </article>
-          ))}
-        </div>
+          <div className="selectedFiles">
+            {selectedTrace.selectedFiles.map((file) => (
+              <article className="selectedFile" key={file.id}>
+                <FileText size={18} />
+                <div>
+                  <h3>{file.title}</h3>
+                  <span className="mono">{file.path}</span>
+                  <p>{file.reason}</p>
+                </div>
+                <strong>{formatNumber(file.tokenCount)} tokens</strong>
+              </article>
+            ))}
+          </div>
+          <div className="tokenSentence">
+            Reduced context from {formatCompactTokens(selectedTrace.naiveTokens)} tokens to {formatCompactTokens(selectedTrace.optimisedTokens)} tokens.
+          </div>
+        </section>
       </section>
     </section>
   );
@@ -886,19 +911,6 @@ function LatestItem({ label, value, mono }: { label: string; value: string; mono
 
 function FlowStep({ label, value }: { label: string; value: string }) {
   return <div className="flowStep"><CheckCircle2 size={16} /><span>{label}</span><strong>{value}</strong></div>;
-}
-
-function SpendBar({ label, value, max, tone }: { label: string; value: number; max: number; tone: "orange" | "blue" | "green" }) {
-  const width = `${Math.max(6, (value / max) * 100)}%`;
-  return (
-    <div className={`spendBar ${tone}`}>
-      <div>
-        <span>{label}</span>
-        <strong>{formatCurrency(value)}</strong>
-      </div>
-      <div className="barTrack"><span style={{ width }} /></div>
-    </div>
-  );
 }
 
 function OptimiserMetric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {
