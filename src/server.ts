@@ -377,32 +377,65 @@ app.post("/api/approvals/:id/tool-decisions", async (req, res) => {
     return;
   }
   const decisions = normalizeToolDecisions(req.body.decisions);
-  const requestedTools = existing.requestedTools?.length ? existing.requestedTools : clientPortalRequestedTools(existing.input);
+  const requestedTools = existing.tool === "gateway.install"
+    ? [{
+        server: "gateway",
+        tool: "gateway.install",
+        reason: "Install approval is required before this MCP endpoint can expose tools.",
+        flagReason: "Unapproved MCP install attempted to use the gateway.",
+        currentPolicy: "require_approval" as const
+      }]
+    : existing.requestedTools?.length ? existing.requestedTools : clientPortalRequestedTools(existing.input);
   const missingDecision = requestedTools.find((tool) => !decisions[tool.tool]);
   if (missingDecision) {
     res.status(400).json({ ok: false, message: `Review ${missingDecision.tool} before submitting.` });
     return;
   }
+  const decidedAt = new Date().toISOString();
   const results: Record<string, unknown> = {};
+  let installDecision: "approved" | "rejected" | null = null;
   for (const tool of requestedTools) {
     const actor = { userId: existing.userId, teamId: existing.teamId };
     const input = tool.input ?? {};
     if (decisions[tool.tool] === "approve") {
-      try {
-        const result = await executeApprovedTool(loaded.config, tool.tool, input);
-        results[tool.tool] = result;
-        await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "execution:success"], result, "Approved in bundled workflow.", existing.id);
-      } catch (error) {
-        results[tool.tool] = { error: error instanceof Error ? error.message : "Execution failed." };
-        await auditToolResult(actor, tool.tool, input, "error", [`approval:${existing.id}:approved`, "execution:error"], undefined, error instanceof Error ? error.message : "Execution failed.", existing.id);
+      if (tool.tool === "gateway.install") {
+        const activation = await activateInstallApproval(existing.id, existing);
+        if (!activation.ok) {
+          res.status(404).json({ ok: false, message: activation.message ?? "Install profile not found for this approval." });
+          return;
+        }
+        installDecision = "approved";
+        results[tool.tool] = activation.result;
+        await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "install:active"], activation.result, "MCP install approved. Gateway handshakes are now allowed.", existing.id);
+      } else {
+        try {
+          const result = await executeApprovedTool(loaded.config, tool.tool, input);
+          results[tool.tool] = result;
+          await auditToolResult(actor, tool.tool, input, "success", [`approval:${existing.id}:approved`, "execution:success"], result, "Approved in bundled workflow.", existing.id);
+        } catch (error) {
+          results[tool.tool] = { error: error instanceof Error ? error.message : "Execution failed." };
+          await auditToolResult(actor, tool.tool, input, "error", [`approval:${existing.id}:approved`, "execution:error"], undefined, error instanceof Error ? error.message : "Execution failed.", existing.id);
+        }
       }
     } else {
+      if (tool.tool === "gateway.install") {
+        const rejection = await rejectInstallApproval(existing.id, existing);
+        if (!rejection.ok) {
+          res.status(404).json({ ok: false, message: rejection.message ?? "Install profile not found for this approval." });
+          return;
+        }
+        installDecision = "rejected";
+        results[tool.tool] = rejection.result;
+        await auditToolResult(actor, tool.tool, input, "rejected", [`approval:${existing.id}:denied`, "install:blocked"], undefined, "MCP install approval was denied.", existing.id);
+        continue;
+      }
       await auditToolResult(actor, tool.tool, input, "denied", [`approval:${existing.id}:denied`, "sensitive-data:blocked"], undefined, tool.flagReason, existing.id);
     }
   }
+  const finalStatus = installDecision ?? "approved";
   const approval = await updateApproval(existing.id, {
-    status: "approved",
-    decidedAt: new Date().toISOString(),
+    status: finalStatus,
+    decidedAt,
     decidedBy: typeof req.body.admin === "string" ? req.body.admin : "admin",
     toolDecisions: decisions,
     result: results
@@ -659,6 +692,21 @@ registerMcpEndpoint(app, () => loaded.config, {
         { installProfileId: profile.id, installProfileName: profile.name },
         ["install:approval-required"]
       );
+      await updateApproval(approval.id, {
+        requester: "External MCP app",
+        requesterName: "External MCP app",
+        requesterTeam: "security",
+        source: "MCP Gateway",
+        requestedServers: ["gateway"],
+        requestedTools: [{
+          server: "gateway",
+          tool: "gateway.install",
+          reason: "Install approval is required before this MCP endpoint can expose tools.",
+          flagReason: "Unapproved MCP install attempted to use the gateway.",
+          currentPolicy: "require_approval"
+        }],
+        summary: `${profile.name} is waiting for gateway approval.`
+      });
       profile.approvalStatus = "pending";
       profile.approvalId = approval.id;
       profile.approvedAt = undefined;
@@ -1015,6 +1063,53 @@ function installProfilePayload(profile: InstallProfile) {
 
 function installProfileForApproval(approvalId: string) {
   return loaded.config.spaces[0].installProfiles.find((profile) => profile.approvalId === approvalId);
+}
+
+async function activateInstallApproval(approvalId: string, approval?: ApprovalRequest) {
+  const profile = installProfileForApproval(approvalId);
+  if (!profile) {
+    return { ok: false as const, message: "Install profile not found for this approval." };
+  }
+  const decidedAt = new Date().toISOString();
+  profile.approvalStatus = "active";
+  profile.approvalId = approvalId;
+  profile.approvedAt = decidedAt;
+  profile.rejectedAt = undefined;
+  await saveConfig(loaded.config);
+  if (approval) {
+    await updateApproval(approval.id, {
+      status: "approved",
+      decidedAt,
+      result: { installProfileId: profile.id, status: profile.approvalStatus }
+    });
+  }
+  return {
+    ok: true as const,
+    result: { installProfileId: profile.id, status: profile.approvalStatus }
+  };
+}
+
+async function rejectInstallApproval(approvalId: string, approval?: ApprovalRequest) {
+  const profile = installProfileForApproval(approvalId);
+  if (!profile) {
+    return { ok: false as const, message: "Install profile not found for this approval." };
+  }
+  const decidedAt = new Date().toISOString();
+  profile.approvalStatus = "rejected";
+  profile.approvalId = approvalId;
+  profile.rejectedAt = decidedAt;
+  await saveConfig(loaded.config);
+  if (approval) {
+    await updateApproval(approval.id, {
+      status: "rejected",
+      decidedAt,
+      result: { installProfileId: profile.id, status: profile.approvalStatus }
+    });
+  }
+  return {
+    ok: true as const,
+    result: { installProfileId: profile.id, status: profile.approvalStatus }
+  };
 }
 
 function liveRequestPayload(entry: AuditLogEntry) {
