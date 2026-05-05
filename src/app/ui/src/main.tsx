@@ -691,6 +691,7 @@ function PoliciesView({ data, refresh }: { data: ControlRoomPayload; refresh: ()
 function TokenCostOptimiserPage() {
   const [traces, setTraces] = useState<TokenCostOptimisationTrace[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedTraceIds, setExpandedTraceIds] = useState<string[]>([]);
   const visibleTraces = traces.length ? traces : demoContextTraces();
   const selectedTrace = visibleTraces.find((trace) => trace.id === selectedId) ?? visibleTraces[0];
   const totals = useMemo(() => {
@@ -727,6 +728,12 @@ function TokenCostOptimiserPage() {
     const timer = window.setInterval(() => void refreshOptimisations(), 5000);
     return () => window.clearInterval(timer);
   }, []);
+
+  function toggleTraceExpanded(traceId: string) {
+    setExpandedTraceIds((current) =>
+      current.includes(traceId) ? current.filter((id) => id !== traceId) : [...current, traceId]
+    );
+  }
 
   return (
     <section className="tokenPage">
@@ -783,17 +790,73 @@ function TokenCostOptimiserPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleTraces.map((trace) => (
-                <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
-                  <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
-                  <td>{mcpName(trace.toolName)}</td>
-                  <td className="mono">{trace.toolName}</td>
-                  <td className="right">{formatNumber(trace.naiveTokens)}</td>
-                  <td className="right">{formatNumber(trace.optimisedTokens)}</td>
-                  <td className="right">{formatNumber(tokensSaved(trace))}</td>
-                  <td className="right">{trace.tokenReductionPercent}%</td>
-                </tr>
-              ))}
+              {visibleTraces.map((trace) => {
+                const isExpanded = expandedTraceIds.includes(trace.id);
+                const removedForTrace = traceRemovedFiles(trace);
+                return (
+                  <React.Fragment key={trace.id}>
+                    <tr className={trace.id === selectedTrace.id ? "active" : ""} onClick={() => setSelectedId(trace.id)}>
+                      <td>
+                        <button
+                          className="traceExpandButton"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleTraceExpanded(trace.id);
+                          }}
+                          aria-label={isExpanded ? "Collapse call log" : "Expand call log"}
+                        >
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          <span>{new Date(trace.createdAt).toLocaleTimeString()}</span>
+                        </button>
+                      </td>
+                      <td>{mcpName(trace.toolName)}</td>
+                      <td className="mono">{trace.toolName}</td>
+                      <td className="right">{formatNumber(trace.naiveTokens)}</td>
+                      <td className="right">{formatNumber(trace.optimisedTokens)}</td>
+                      <td className="right">{formatNumber(tokensSaved(trace))}</td>
+                      <td className="right">{trace.tokenReductionPercent}%</td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="traceExpandedRow">
+                        <td colSpan={7}>
+                          <div className="traceExpandedContent">
+                            <div className="traceExpandedHeader">
+                              <strong>{trace.requestSummary}</strong>
+                              <span>{formatNumber(trace.indexedFiles)} candidates {"->"} {trace.selectedFiles.length} selected</span>
+                            </div>
+                            <div className="traceExpandedGrid">
+                              <div>
+                                <span className="sectionLabel">Selected context</span>
+                                <div className="traceList">
+                                  {trace.selectedFiles.map((file) => (
+                                    <article className="traceListItem" key={file.id}>
+                                      <strong>{file.title}</strong>
+                                      <span className="mono">{file.path}</span>
+                                      <p>{file.reason}</p>
+                                    </article>
+                                  ))}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="sectionLabel">Removed context</span>
+                                <div className="traceList">
+                                  {removedForTrace.map((file) => (
+                                    <article className="traceListItem removed" key={file.id}>
+                                      <strong>{file.title}</strong>
+                                      <span className="mono">{file.path}</span>
+                                      <p>{file.reason}</p>
+                                    </article>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

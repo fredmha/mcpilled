@@ -5,7 +5,7 @@ import { getConnectorDefinition } from "../connectors/registry.js";
 import { getConnectorCredentials } from "../config/secrets.js";
 import { callDownstreamTool } from "./downstreamMcp.js";
 import { logActivity } from "./activityLogger.js";
-import { auditToolResult, evaluatePolicy, queueApproval, queueWorkflowApproval, type ActorContext } from "./governance.js";
+import { auditToolResult, evaluatePolicy, normalizeActorContext, queueApproval, queueWorkflowApproval, type ActorContext } from "./governance.js";
 import { isToolAllowed } from "./permissions.js";
 import { listGatewayTools } from "./toolRegistry.js";
 
@@ -16,6 +16,7 @@ export async function handleToolList(config: GatewayConfig) {
 }
 
 export async function handleToolCall(config: GatewayConfig, toolName: string, args: Record<string, unknown>, client = "AI assistant", installProfile?: InstallProfile, actor: ActorContext = { userId: "fred.haris", teamId: "users" }) {
+  actor = normalizeActorContext(actor);
   const started = Date.now();
   const space = config.spaces[0];
   const connectorId = toolName.split(".")[0];

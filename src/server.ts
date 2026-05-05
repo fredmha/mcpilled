@@ -7,7 +7,7 @@ import { getSecret, saveConnectorCredentials, saveSecret } from "./config/secret
 import { addInstallProfile, createInstallToken, loadConfig, resetConfig, saveConfig, upsertConnector } from "./config/store.js";
 import { registerMcpEndpoint } from "./gateway/mcpEndpoint.js";
 import { readRecentActivity } from "./gateway/activityLogger.js";
-import { auditToolResult, capabilityIndex, queueApproval, readApprovals, readAudit, readPolicies, replacePolicies, resetGovernanceState, updateApproval } from "./gateway/governance.js";
+import { auditToolResult, capabilityIndex, normalizeUserId, queueApproval, readApprovals, readAudit, readPolicies, replacePolicies, resetGovernanceState, updateApproval } from "./gateway/governance.js";
 import { listDownstreamTools, testDownstreamServer } from "./gateway/downstreamMcp.js";
 import { readTokenCostOptimisations, recordTokenCostOptimisation, resetTokenCostOptimisations } from "./gateway/tokenCostOptimiser.js";
 import { clientPortalRequestedTools, executeApprovedTool, handleToolCall } from "./gateway/toolRouter.js";
@@ -691,7 +691,7 @@ registerMcpEndpoint(app, () => loaded.config, {
     }
     if (!profile.approvalId || profile.approvalStatus !== "pending") {
       const approval = await queueApproval(
-        { userId: "external-mcp-app", teamId: "security" },
+        { userId: "fred.haris", teamId: "users" },
         "gateway.install",
         { installProfileId: profile.id, installProfileName: profile.name },
         ["install:approval-required"]
@@ -864,12 +864,8 @@ function userPayload(audit: AuditLogEntry[], approvals: ApprovalRequest[], polic
     ...approvals.map((approval) => approval.userId),
     ...policies.filter((policy) => policy.scope === "user").map((policy) => policy.subjectId)
   ].filter(Boolean))) {
-    users[userId] ??= {
-      id: userId,
-      name: userId.split(".").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" "),
-      email: userId.includes("@") ? userId : `${userId}@company.io`,
-      color: "#64748B"
-    };
+    const placeholderId = normalizeUserId(userId);
+    users[placeholderId] ??= { ...defaultUsers[placeholderId] };
   }
   return users;
 }
@@ -878,7 +874,7 @@ function serverAccessFromPolicies(serverTools: ToolCapability[], policies: Polic
   const userSubjects = [
     ...new Set([
       ...Object.keys(users),
-      ...policies.filter((policy) => policy.scope === "user").map((policy) => policy.subjectId)
+      ...policies.filter((policy) => policy.scope === "user").map((policy) => normalizeUserId(policy.subjectId))
     ])
   ];
   return {
@@ -911,7 +907,7 @@ function decisionForTool(policies: PolicyRule[], scope: PolicyRule["scope"], sub
 function updateServerAccessPolicies(policies: PolicyRule[], serverTools: ToolCapability[], access: { global?: PolicyDecision; globalProvided: boolean; teams: Record<string, PolicyDecision | undefined>; users: Record<string, PolicyDecision | undefined> }) {
   const toolNames = new Set(serverTools.map((tool) => tool.name));
   const teamSubjects = new Set(Object.keys(access.teams));
-  const userSubjects = new Set(Object.keys(access.users));
+  const userSubjects = new Set<string>(Object.keys(access.users).map((userId) => normalizeUserId(userId)));
   const retained = policies.filter((policy) => {
     if (!policy.tool || !toolNames.has(policy.tool)) {
       return true;
@@ -939,7 +935,7 @@ function updateServerAccessPolicies(policies: PolicyRule[], serverTools: ToolCap
   }
   for (const [userId, decision] of Object.entries(access.users)) {
     if (decision) {
-      next.push(...serverTools.map((tool) => accessRule("user", userId, tool.name, decision)));
+      next.push(...serverTools.map((tool) => accessRule("user", normalizeUserId(userId), tool.name, decision)));
     }
   }
   return next;

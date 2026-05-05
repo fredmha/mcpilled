@@ -3,6 +3,7 @@ import type { GatewayConfig, InstallProfile } from "../shared/types.js";
 import { forwardToMetaMcp } from "../adapters/metamcpAdapter.js";
 import { verifyApiKey } from "../spaces/apiKeys.js";
 import { recordTokenCostOptimisation } from "./tokenCostOptimiser.js";
+import { normalizeActorContext } from "./governance.js";
 import { handleToolCall, handleToolList } from "./toolRouter.js";
 
 interface InstallGateResult {
@@ -82,10 +83,10 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
         } catch (error) {
           console.warn("Token cost optimiser failed", error);
         }
-        const result = await handleToolCall(config, params.name ?? "", params.arguments ?? {}, req.header("x-client-name") ?? installProfile.name, installProfile, {
+        const result = await handleToolCall(config, params.name ?? "", params.arguments ?? {}, req.header("x-client-name") ?? installProfile.name, installProfile, normalizeActorContext({
           userId: req.header("x-user-id") ?? "fred.haris",
           teamId: req.header("x-team-id") ?? "users"
-        });
+        }));
         const responseResult = optimisation && result && typeof result === "object" && !Array.isArray(result)
           ? { ...result, optimisation }
           : result;
