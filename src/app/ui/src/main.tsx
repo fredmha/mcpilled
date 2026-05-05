@@ -140,9 +140,8 @@ function App() {
 
   return (
     <div className="appShell">
-      <Sidebar page={page} setPage={setPage} pendingCount={data.stats.pendingApprovals} />
       <main className="workspace">
-        <TopBar data={data} notice={notice} refresh={refresh} copy={copy} />
+        <TopBar data={data} notice={notice} refresh={refresh} copy={copy} page={page} setPage={setPage} />
         {page === "servers" && <ServersView data={data} refresh={refresh} openRegister={() => setRegisterOpen(true)} />}
         {page === "approvals" && <ApprovalsView approvals={data.pendingApprovals} reject={reject} submitToolDecisions={submitToolDecisions} />}
         {page === "install" && <InstallView data={data} copy={copy} refresh={refresh} />}
@@ -154,7 +153,7 @@ function App() {
 
 function Sidebar({ page, setPage, pendingCount }: { page: Page; setPage: (page: Page) => void; pendingCount: number }) {
   return (
-    <aside className="sidebar">
+    <div className="sidebar">
       <div className="brand">
         <div className="brandIcon"><Shield size={22} /></div>
         <div>
@@ -171,23 +170,28 @@ function Sidebar({ page, setPage, pendingCount }: { page: Page; setPage: (page: 
           </button>
         ))}
       </nav>
-    </aside>
+    </div>
   );
 }
 
-function TopBar({ data, notice, refresh, copy }: { data: ControlRoomPayload; notice: string; refresh: () => Promise<void>; copy: (value: string, label: string) => Promise<void> }) {
+function TopBar({
+  data,
+  notice,
+  refresh,
+  copy,
+  page,
+  setPage
+}: {
+  data: ControlRoomPayload;
+  notice: string;
+  refresh: () => Promise<void>;
+  copy: (value: string, label: string) => Promise<void>;
+  page: Page;
+  setPage: (page: Page) => void;
+}) {
   return (
     <header className="topBar">
-      <div className="endpoint">
-        <span>Unified gateway endpoint</span>
-        <strong>{data.gatewayUrl}</strong>
-      </div>
-      <div className="statRail">
-        <StatCard label="Servers" value={data.stats.servers} tone="purple" />
-        <StatCard label="Tools" value={data.stats.tools} tone="blue" />
-        <StatCard label="Pending approvals" value={data.stats.pendingApprovals} tone="orange" />
-        <StatCard label="Total calls" value={data.stats.totalCalls} tone="teal" />
-      </div>
+      <Sidebar page={page} setPage={setPage} pendingCount={data.stats.pendingApprovals} />
       <div className="topActions">
         {notice && <div className="notice">{notice}</div>}
         <button onClick={() => copy(data.gatewayUrl, "Gateway URL")}><Clipboard size={16} />Copy</button>
@@ -200,6 +204,7 @@ function TopBar({ data, notice, refresh, copy }: { data: ControlRoomPayload; not
 function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload; refresh: () => Promise<void>; openRegister: () => void }) {
   const [expandedServer, setExpandedServer] = useState<string | null>(data.mcpServers[0]?.id ?? null);
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+  const gatewayIsLocal = data.gatewayUrl.includes("localhost") || data.gatewayUrl.includes("127.0.0.1");
 
   async function updateAccess(server: ControlServer, patch: Partial<Pick<ControlServer, "global" | "teams" | "users">>) {
     const body = {
@@ -231,12 +236,32 @@ function ServersView({ data, refresh, openRegister }: { data: ControlRoomPayload
 
   return (
     <section className="pageStack">
-      <div className="pageHeader">
-        <div>
-          <h1>MCP Servers</h1>
-          <p>Manage downstream MCP servers and hierarchical access controls.</p>
+      <div className="dashboardHeader">
+        <div className="dashboardTitle">
+          <span className="sectionLabel">Control room</span>
+          <h1>Servers</h1>
+          <p>Downstream MCP inventory, access policy, and install endpoint status.</p>
         </div>
-        <button className="primary" onClick={openRegister}><Plus size={16} />Register server</button>
+        <div className="dashboardActions">
+          <button className="primary" onClick={openRegister}><Plus size={16} />Register server</button>
+          <button onClick={refresh}><RefreshCw size={16} />Refresh</button>
+        </div>
+      </div>
+      <div className="opsOverview">
+        <div className="endpointPanel">
+          <div>
+            <span className="sectionLabel">Unified gateway endpoint</span>
+            {gatewayIsLocal && <em>Local fallback</em>}
+          </div>
+          <strong className="mono">{data.gatewayUrl}</strong>
+          <button onClick={() => navigator.clipboard.writeText(data.gatewayUrl)}><Clipboard size={16} />Copy endpoint</button>
+        </div>
+        <div className="statRail">
+          <StatCard label="Servers" value={data.stats.servers} tone="purple" />
+          <StatCard label="Tools" value={data.stats.tools} tone="blue" />
+          <StatCard label="Pending approvals" value={data.stats.pendingApprovals} tone="orange" />
+          <StatCard label="Total calls" value={data.stats.totalCalls} tone="teal" />
+        </div>
       </div>
       {data.mcpServers.map((server) => (
         <ServerCard
@@ -361,16 +386,47 @@ function ServerCard({
 }
 
 function ApprovalsView({ approvals, submitToolDecisions, reject }: { approvals: ControlApproval[]; submitToolDecisions: (id: string, decisions: Record<string, ToolDecision>) => Promise<void>; reject: (id: string) => Promise<void> }) {
+  const [activeApprovalId, setActiveApprovalId] = useState<string | null>(approvals[0]?.id ?? null);
+  useEffect(() => {
+    if (!approvals.length) {
+      setActiveApprovalId(null);
+      return;
+    }
+    if (!activeApprovalId || !approvals.some((approval) => approval.id === activeApprovalId)) {
+      setActiveApprovalId(approvals[0].id);
+    }
+  }, [activeApprovalId, approvals]);
+  const activeApproval = approvals.find((approval) => approval.id === activeApprovalId) ?? approvals[0];
+
   return (
     <section className="pageStack">
       <div className="pageHeader">
         <div>
           <h1>Approvals</h1>
-          <p>Review requests blocked by write or override policy before they execute.</p>
+          <p>Review blocked tool requests one workflow at a time.</p>
         </div>
       </div>
       {approvals.length === 0 && <EmptyState title="No pending approvals" text="Requests that require admin review will appear here." />}
-      {approvals.map((approval) => <ApprovalCard approval={approval} key={approval.id} reject={reject} submitToolDecisions={submitToolDecisions} />)}
+      {approvals.length > 0 && (
+        <div className="approvalWorkspace">
+          <div className="approvalTabs" role="tablist" aria-label="Pending approval requests">
+            {approvals.map((approval, index) => (
+              <button
+                aria-selected={approval.id === activeApproval?.id}
+                className={approval.id === activeApproval?.id ? "approvalTab active" : "approvalTab"}
+                key={approval.id}
+                onClick={() => setActiveApprovalId(approval.id)}
+                role="tab"
+              >
+                <span>Request {index + 1}</span>
+                <strong>{approval.requesterName ?? approval.userId}</strong>
+                <small>{approval.requestedTools?.length ?? 1} tools</small>
+              </button>
+            ))}
+          </div>
+          {activeApproval && <ApprovalCard approval={activeApproval} key={activeApproval.id} reject={reject} submitToolDecisions={submitToolDecisions} />}
+        </div>
+      )}
     </section>
   );
 }
@@ -749,10 +805,10 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 }
 
 function policyColor(value: UiDecision) {
-  if (value === "allow") return "#14B8A6";
-  if (value === "deny") return "#EF4444";
-  if (value === "require_approval") return "#F97316";
-  return "#94A3B8";
+  if (value === "allow") return "#000000";
+  if (value === "deny") return "#57534f";
+  if (value === "require_approval") return "#777169";
+  return "#a59f97";
 }
 
 function policyLabel(value: UiDecision) {

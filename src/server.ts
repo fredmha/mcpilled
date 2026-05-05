@@ -24,6 +24,12 @@ function gatewayUrl(req?: Request) {
   if (process.env.MCP_GATEWAY_PUBLIC_URL) {
     return `${process.env.MCP_GATEWAY_PUBLIC_URL.replace(/\/$/, "")}/mcp`;
   }
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+    return `https://${process.env.RAILWAY_PUBLIC_DOMAIN.replace(/\/$/, "")}/mcp`;
+  }
+  if (process.env.RAILWAY_STATIC_URL) {
+    return `${process.env.RAILWAY_STATIC_URL.replace(/\/$/, "")}/mcp`;
+  }
   const forwardedProto = req?.header("x-forwarded-proto");
   const proto = forwardedProto ? forwardedProto.split(",")[0].trim() : undefined;
   const forwardedHost = req?.header("x-forwarded-host");
