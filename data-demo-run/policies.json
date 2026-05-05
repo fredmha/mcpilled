@@ -1,0 +1,34 @@
+[
+  {
+    "id": "global-read-allow",
+    "scope": "global",
+    "subjectId": "*",
+    "classification": "read",
+    "decision": "allow",
+    "reason": "Global policy allows read tools."
+  },
+  {
+    "id": "global-write-approval",
+    "scope": "global",
+    "subjectId": "*",
+    "classification": "write",
+    "decision": "approval",
+    "reason": "Global policy requires approval for write tools."
+  },
+  {
+    "id": "team-contractors-deny-github-issues",
+    "scope": "team",
+    "subjectId": "contractors",
+    "tool": "github.create_issue",
+    "decision": "deny",
+    "reason": "Contractors cannot create GitHub issues."
+  },
+  {
+    "id": "user-admin-allow-github-issues",
+    "scope": "user",
+    "subjectId": "admin",
+    "tool": "github.create_issue",
+    "decision": "allow",
+    "reason": "Admin user can run the demo write action directly."
+  }
+]

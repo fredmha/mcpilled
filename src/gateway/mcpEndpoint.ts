@@ -2,9 +2,10 @@ import type { Express, Request, Response } from "express";
 import type { GatewayConfig, InstallProfile } from "../shared/types.js";
 import { forwardToMetaMcp } from "../adapters/metamcpAdapter.js";
 import { verifyApiKey } from "../spaces/apiKeys.js";
+import { recordTokenCostOptimisation } from "./tokenCostOptimiser.js";
 import { handleToolCall, handleToolList } from "./toolRouter.js";
 
-export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig, options?: { legacyToken?: string; onInstallUsed?: (profile: InstallProfile, req: Request) => Promise<{ allowed: boolean; approvalId?: string; message?: string }> }) {
+export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig, options?: { legacyToken?: string; onInstallUsed?: (profile: InstallProfile) => Promise<void> }) {
   app.options("/mcp", (_req, res) => {
     applyMcpCors(res);
     res.sendStatus(204);
@@ -19,20 +20,7 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
       res.status(401).json({ error: "Invalid install token" });
       return;
     }
-    const body = req.body as { id?: string | number; method?: string; params?: Record<string, unknown> };
-    const installGate = await options?.onInstallUsed?.(installProfile, req);
-    if (installGate && !installGate.allowed) {
-      res.status(200).json({
-        jsonrpc: "2.0",
-        id: body.id,
-        error: {
-          code: -32001,
-          message: installGate.message ?? "Install approval required before MCP tools are exposed.",
-          data: { approvalId: installGate.approvalId, status: "pending" }
-        }
-      });
-      return;
-    }
+    await options?.onInstallUsed?.(installProfile);
 
     const forwarded = await forwardToMetaMcp(req);
     if (forwarded) {
@@ -40,6 +28,7 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
       return;
     }
 
+    const body = req.body as { id?: string | number; method?: string; params?: Record<string, unknown> };
     try {
       if (body.method === "initialize") {
         const requestedProtocolVersion = typeof body.params?.protocolVersion === "string" ? body.params.protocolVersion : "2025-03-26";
@@ -68,7 +57,20 @@ export function registerMcpEndpoint(app: Express, getConfig: () => GatewayConfig
           userId: req.header("x-user-id") ?? "demo-user",
           teamId: req.header("x-team-id") ?? "engineering"
         });
-        res.json({ jsonrpc: "2.0", id: body.id, result });
+        let optimisation;
+        try {
+          optimisation = await recordTokenCostOptimisation({
+            appName: req.header("x-client-name") ?? installProfile.name ?? "External MCP App",
+            toolName: params.name ?? "",
+            args: params.arguments ?? {}
+          });
+        } catch (error) {
+          console.warn("Token cost optimiser failed", error);
+        }
+        const responseResult = optimisation && result && typeof result === "object" && !Array.isArray(result)
+          ? { ...result, optimisation }
+          : result;
+        res.json({ jsonrpc: "2.0", id: body.id, result: responseResult });
         return;
       }
       res.json({

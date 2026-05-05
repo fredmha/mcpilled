@@ -607,20 +607,192 @@ h3 { font-size: 15px; font-weight: 500; line-height: 1.47; }
   display: grid;
   gap: 18px;
 }
-.installStatus {
+
+.tokenPage {
+  flex: 1;
+  overflow: auto;
+  padding: 48px 40px 72px;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+.tokenLatest, .tokenPanel, .optimiserMetric {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  background: #ffffff;
   border: 1px solid var(--color-chalk);
   border-radius: 8px;
-  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+.tokenLatest {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(340px, 0.95fr);
+  gap: 20px;
+  padding: 20px;
+  align-items: stretch;
+}
+.latestCopy { display: grid; align-content: start; gap: 14px; }
+.latestTitleRow, .panelTitleRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
-  align-items: center;
+}
+.latestCopy h2 { font-size: 24px; line-height: 1.25; }
+.latestMeta {
+  display: grid;
+  gap: 8px;
+  color: var(--color-gravel);
+  font-size: 14px;
+}
+.latestMeta span {
+  padding: 10px 12px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
   background: var(--color-powder);
 }
-.installStatus div { display: grid; gap: 4px; min-width: 0; }
-.installStatus span, .installStatus small { color: var(--color-gravel); font-size: 12px; font-weight: 500; }
-.installStatus strong { text-transform: capitalize; }
-.installStatus button { white-space: nowrap; }
+.contextBars {
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: var(--color-powder);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+.contextBars p { color: var(--color-gravel); font-size: 13px; line-height: 1.45; }
+.contextBar { display: grid; gap: 8px; }
+.contextBar > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-gravel);
+  font-size: 13px;
+}
+.contextBar strong, .contextBar em {
+  color: var(--color-obsidian);
+  font-style: normal;
+  white-space: nowrap;
+}
+.barTrack {
+  height: 11px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid var(--color-chalk);
+  overflow: hidden;
+}
+.barTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-obsidian);
+}
+.contextBar:nth-child(2) .barTrack span { background: var(--color-signal-blue); }
+.tokenMetricGrid {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.optimiserMetric {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+.optimiserMetric span, .costRow span, .signalList span {
+  color: var(--color-gravel);
+  font-size: 13px;
+}
+.optimiserMetric strong {
+  font-family: var(--font-waldenburg);
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.1;
+}
+.tokenSplit {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  gap: 16px;
+}
+.tokenPanel {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+.ignoredBadge {
+  border: 1px solid var(--color-chalk);
+  border-radius: 9999px;
+  padding: 7px 10px;
+  color: var(--color-gravel);
+  font-size: 12px;
+  white-space: nowrap;
+  background: var(--color-powder);
+}
+.selectedFiles { display: grid; gap: 10px; }
+.selectedFile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--color-chalk);
+  border-radius: 8px;
+  background: var(--color-powder);
+}
+.selectedFile h3 { margin-bottom: 3px; }
+.selectedFile p {
+  margin-top: 6px;
+  color: var(--color-gravel);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.selectedFile > strong {
+  color: var(--color-obsidian);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ignoredLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-gravel);
+  font-size: 13px;
+}
+.costPanel { align-content: start; }
+.costRows { display: grid; gap: 8px; }
+.costRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-chalk);
+}
+.costRow.strong {
+  border: 0;
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--color-obsidian);
+  color: var(--color-eggshell);
+}
+.costRow.strong span, .costRow.strong strong { color: var(--color-eggshell); }
+.signalList { display: grid; gap: 8px; }
+.signalList span {
+  border: 1px solid var(--color-chalk);
+  border-radius: 9999px;
+  padding: 8px 10px;
+  background: var(--color-powder);
+}
+.logPanel { overflow: hidden; }
+.tokenTableWrap { overflow: auto; }
+.tokenTable tr { cursor: pointer; }
+.tokenTable tbody tr.active, .tokenTable tbody tr:hover { background: var(--color-powder); }
+.tokenTable .statusBadge { white-space: nowrap; }
 .drawerBackdrop {
   position: fixed;
   inset: 0;
@@ -771,7 +943,7 @@ th { background: var(--color-powder); }
   .navItem { justify-content: center; min-height: 38px; padding: 0 8px; }
   .navItem span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .workspace { overflow: visible; min-height: 0; }
-  .topBar, .pageStack, .activityGrid, .installPage { padding: 20px 16px; }
+  .topBar, .pageStack, .activityGrid, .installPage, .tokenPage { padding: 20px 16px; }
   .topBar { gap: 12px; }
   .sidebar {
     display: grid;
@@ -782,7 +954,7 @@ th { background: var(--color-powder); }
   }
   .navList {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .controlHero { margin-bottom: 32px; gap: 20px; }
   .dashboardHeader { display: grid; align-items: start; margin-bottom: 16px; }
@@ -794,6 +966,9 @@ th { background: var(--color-powder); }
   .demoCardHeader { align-items: start; }
   .gatewayDemoCard .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .statRail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tokenLatest, .tokenSplit, .tokenMetricGrid { grid-template-columns: 1fr; }
+  .contextBar > div:first-child, .selectedFile { grid-template-columns: 1fr; }
+  .selectedFile > svg { display: none; }
   .pageHeader, .serverSummary, .accessBlock, .teamPolicyTop, .memberPolicy, .approvalHeader, .approvalContext { display: grid; }
   .pageHeader { align-items: start; }
   h1 { font-size: 36px; letter-spacing: -0.72px; line-height: 1.13; }

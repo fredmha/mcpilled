@@ -1,0 +1,78 @@
+{
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "advancedMode": false
+  },
+  "spaces": [
+    {
+      "id": "default",
+      "name": "Default Org",
+      "apiKeyHash": "942c3edb7a6da039db750e532ba606ae11bfee59c039a0ed698db71ea987f08f",
+      "apiKeyPreview": "mgw_DVs...m3WP",
+      "connectors": [
+        {
+          "id": "github",
+          "enabled": true,
+          "status": "connected",
+          "toolCount": 2,
+          "allowedTools": [
+            "github.list_repos",
+            "github.create_issue"
+          ],
+          "displayNameOverride": "Mock GitHub MCP",
+          "mcpServer": {
+            "transport": "http",
+            "url": "mock://github"
+          }
+        },
+        {
+          "id": "notion",
+          "enabled": true,
+          "status": "connected",
+          "toolCount": 1,
+          "allowedTools": [
+            "notion.search_pages"
+          ],
+          "displayNameOverride": "Mock Notion MCP",
+          "mcpServer": {
+            "transport": "http",
+            "url": "mock://notion"
+          }
+        },
+        {
+          "id": "gmail",
+          "enabled": true,
+          "status": "connected",
+          "toolCount": 1,
+          "allowedTools": [
+            "gmail.search_email"
+          ],
+          "displayNameOverride": "Mock Gmail MCP",
+          "mcpServer": {
+            "transport": "http",
+            "url": "mock://gmail"
+          }
+        }
+      ],
+      "installProfiles": [
+        {
+          "id": "owner",
+          "name": "Owner install",
+          "tokenHash": "942c3edb7a6da039db750e532ba606ae11bfee59c039a0ed698db71ea987f08f",
+          "tokenPreview": "mgw_DVs...m3WP",
+          "allowedTools": [
+            "*"
+          ],
+          "createdAt": "2026-05-02T01:17:29.399Z"
+        }
+      ],
+      "adminAgent": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "modelKeyStored": false
+      },
+      "importedMcpServers": []
+    }
+  ]
+}

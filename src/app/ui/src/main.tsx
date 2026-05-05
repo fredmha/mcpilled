@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clipboard,
   Database,
+  FileText,
   KeyRound,
   ListChecks,
   Plug,
@@ -19,7 +21,7 @@ import {
 import type { ApprovalRequest } from "../../../shared/types";
 import "./styles.css";
 
-type Page = "servers" | "approvals" | "install";
+type Page = "servers" | "approvals" | "install" | "optimiser";
 type UiDecision = "allow" | "deny" | "require_approval" | "inherit";
 type ToolDecision = "approve" | "deny";
 
@@ -74,21 +76,37 @@ interface ControlRoomPayload {
   mcpServers: ControlServer[];
   pendingApprovals: ControlApproval[];
   installConfigs: Record<string, string>;
-  installProfiles?: Array<{
+}
+
+interface TokenCostOptimisationTrace {
+  id: string;
+  createdAt: string;
+  appName: string;
+  toolName: string;
+  requestSummary: string;
+  indexedFiles: number;
+  selectedFiles: Array<{
     id: string;
-    name: string;
-    tokenPreview: string;
-    approvalStatus: "not_started" | "pending" | "active" | "rejected";
-    approvalId?: string;
-    lastUsedAt?: string;
-    approvedAt?: string;
+    title: string;
+    path: string;
+    tokenCount: number;
+    reason: string;
   }>;
+  ignoredFiles: number;
+  naiveTokens: number;
+  optimisedTokens: number;
+  tokenReductionPercent: number;
+  estimatedCostBefore: number;
+  estimatedCostAfter: number;
+  estimatedCostSaved: number;
+  status: "optimised";
 }
 
 const navItems: Array<{ page: Page; label: string; icon: React.ReactNode }> = [
   { page: "servers", label: "MCP Servers", icon: <Plug size={18} /> },
   { page: "approvals", label: "Approvals", icon: <ListChecks size={18} /> },
-  { page: "install", label: "Install", icon: <KeyRound size={18} /> }
+  { page: "install", label: "Install", icon: <KeyRound size={18} /> },
+  { page: "optimiser", label: "Token Cost Optimiser", icon: <BarChart3 size={18} /> }
 ];
 
 function App() {
@@ -144,7 +162,8 @@ function App() {
         <TopBar data={data} notice={notice} refresh={refresh} copy={copy} page={page} setPage={setPage} />
         {page === "servers" && <ServersView data={data} refresh={refresh} openRegister={() => setRegisterOpen(true)} />}
         {page === "approvals" && <ApprovalsView approvals={data.pendingApprovals} reject={reject} submitToolDecisions={submitToolDecisions} />}
-        {page === "install" && <InstallView data={data} copy={copy} refresh={refresh} />}
+        {page === "install" && <InstallView data={data} copy={copy} />}
+        {page === "optimiser" && <TokenCostOptimiserPage />}
       </main>
       {registerOpen && <RegisterServerDrawer close={() => setRegisterOpen(false)} refresh={refresh} />}
     </div>
@@ -660,16 +679,198 @@ function PoliciesView({ data, refresh }: { data: ControlRoomPayload; refresh: ()
   );
 }
 
-function InstallView({ data, copy, refresh }: { data: ControlRoomPayload; copy: (value: string, label: string) => Promise<void>; refresh: () => Promise<void> }) {
-  const config = data.installConfigs.universal ?? "";
-  const ownerInstall = data.installProfiles?.[0];
+function TokenCostOptimiserPage() {
+  const [traces, setTraces] = useState<TokenCostOptimisationTrace[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedTrace = traces.find((trace) => trace.id === selectedId) ?? traces[0];
 
-  async function disconnectInstall() {
-    if (!ownerInstall) return;
-    await fetch(`/api/install-profiles/${ownerInstall.id}/disconnect`, { method: "POST" });
-    await refresh();
+  async function refreshOptimisations() {
+    const response = await fetch("/api/token-cost-optimisations");
+    const payload = await response.json() as { optimisations: TokenCostOptimisationTrace[] };
+    setTraces(payload.optimisations);
+    setSelectedId((current) => current && payload.optimisations.some((trace) => trace.id === current) ? current : payload.optimisations[0]?.id ?? null);
   }
 
+  useEffect(() => {
+    void refreshOptimisations();
+    const timer = window.setInterval(() => void refreshOptimisations(), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (!selectedTrace) {
+    return (
+      <section className="tokenPage">
+        <div className="dashboardHeader">
+          <div className="dashboardTitle">
+            <span className="sectionLabel">Workspace index</span>
+            <h1>Token Cost Optimiser</h1>
+            <p>Request-time context selection and token savings for MCP tool calls.</p>
+          </div>
+          <button onClick={refreshOptimisations}><RefreshCw size={16} />Refresh</button>
+        </div>
+        <EmptyState
+          title="No request-time optimisation logs yet."
+          text="Call an MCP tool from Lovable, Cursor, Claude, or another app to generate a trace."
+        />
+      </section>
+    );
+  }
+
+  const maxTokens = Math.max(selectedTrace.naiveTokens, selectedTrace.optimisedTokens);
+  const naiveWidth = `${Math.max(4, (selectedTrace.naiveTokens / maxTokens) * 100)}%`;
+  const optimisedWidth = `${Math.max(4, (selectedTrace.optimisedTokens / maxTokens) * 100)}%`;
+
+  return (
+    <section className="tokenPage">
+      <div className="dashboardHeader">
+        <div className="dashboardTitle">
+          <span className="sectionLabel">Personal Files index</span>
+          <h1>Token Cost Optimiser</h1>
+          <p>Request-time context selection and token savings for MCP tool calls.</p>
+        </div>
+        <button onClick={refreshOptimisations}><RefreshCw size={16} />Refresh</button>
+      </div>
+
+      <section className="tokenLatest">
+        <div className="latestCopy">
+          <div className="latestTitleRow">
+            <span className="sectionLabel">Latest MCP request optimisation</span>
+            <StatusBadge status="optimised" />
+          </div>
+          <h2>{selectedTrace.requestSummary}</h2>
+          <div className="latestMeta">
+            <span>App: {selectedTrace.appName}</span>
+            <span>Tool called: <strong className="mono">{selectedTrace.toolName}</strong></span>
+            <span>Status: Optimised</span>
+          </div>
+        </div>
+        <div className="contextBars">
+          <ContextBar label="Naive context" value={selectedTrace.naiveTokens} cost={selectedTrace.estimatedCostBefore} width={naiveWidth} />
+          <ContextBar label="Optimised context" value={selectedTrace.optimisedTokens} cost={selectedTrace.estimatedCostAfter} width={optimisedWidth} />
+          <p>Reduced context from {formatCompactTokens(selectedTrace.naiveTokens)} tokens to {formatCompactTokens(selectedTrace.optimisedTokens)} tokens.</p>
+        </div>
+      </section>
+
+      <div className="tokenMetricGrid">
+        <OptimiserMetric label="Indexed Files" value={formatNumber(selectedTrace.indexedFiles)} />
+        <OptimiserMetric label="Files Selected" value={formatNumber(selectedTrace.selectedFiles.length)} />
+        <OptimiserMetric label="Token Reduction" value={`${selectedTrace.tokenReductionPercent}%`} />
+        <OptimiserMetric label="Estimated Cost Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} />
+      </div>
+
+      <section className="tokenSplit">
+        <div className="tokenPanel">
+          <div className="panelTitleRow">
+            <div>
+              <span className="sectionLabel">Selected context</span>
+              <h2>Selected Context Files</h2>
+            </div>
+            <span className="ignoredBadge">{selectedTrace.ignoredFiles} files ignored</span>
+          </div>
+          <div className="selectedFiles">
+            {selectedTrace.selectedFiles.map((file) => (
+              <article className="selectedFile" key={file.id}>
+                <FileText size={18} />
+                <div>
+                  <h3>{file.title}</h3>
+                  <span className="mono">{file.path}</span>
+                  <p>{file.reason}</p>
+                </div>
+                <strong>{formatNumber(file.tokenCount)} tokens</strong>
+              </article>
+            ))}
+          </div>
+          <div className="ignoredLine">
+            <CheckCircle2 size={16} />
+            <span>Ignored irrelevant files: {selectedTrace.ignoredFiles}</span>
+          </div>
+        </div>
+
+        <div className="tokenPanel costPanel">
+          <span className="sectionLabel">Cost savings projection</span>
+          <h2>Workspace index selection</h2>
+          <div className="costRows">
+            <CostRow label="Naive context" value={formatCurrency(selectedTrace.estimatedCostBefore)} />
+            <CostRow label="Optimised context" value={formatCurrency(selectedTrace.estimatedCostAfter)} />
+            <CostRow label="Saved" value={formatCurrency(selectedTrace.estimatedCostSaved)} strong />
+          </div>
+          <div className="signalList">
+            <span>Searched workspace index</span>
+            <span>Selected {selectedTrace.selectedFiles.length} high-signal files</span>
+            <span>Ignored {selectedTrace.ignoredFiles} irrelevant files</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="tokenPanel logPanel">
+        <div className="panelTitleRow">
+          <div>
+            <span className="sectionLabel">Request-time optimisation logs</span>
+            <h2>Recent MCP optimisation logs</h2>
+          </div>
+        </div>
+        <div className="tokenTableWrap">
+          <table className="tokenTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>App</th>
+                <th>Tool</th>
+                <th>Indexed</th>
+                <th>Selected</th>
+                <th>Naive Tokens</th>
+                <th>Optimised Tokens</th>
+                <th>Reduction</th>
+                <th>Cost Saved</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {traces.map((trace) => (
+                <tr className={trace.id === selectedTrace.id ? "active" : ""} key={trace.id} onClick={() => setSelectedId(trace.id)}>
+                  <td>{new Date(trace.createdAt).toLocaleTimeString()}</td>
+                  <td>{trace.appName}</td>
+                  <td className="mono">{trace.toolName}</td>
+                  <td>{formatNumber(trace.indexedFiles)}</td>
+                  <td>{formatNumber(trace.selectedFiles.length)}</td>
+                  <td>{formatNumber(trace.naiveTokens)}</td>
+                  <td>{formatNumber(trace.optimisedTokens)}</td>
+                  <td>{trace.tokenReductionPercent}%</td>
+                  <td>{formatCurrency(trace.estimatedCostSaved)}</td>
+                  <td><StatusBadge status="optimised" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function ContextBar({ label, value, cost, width }: { label: string; value: number; cost: number; width: string }) {
+  return (
+    <div className="contextBar">
+      <div>
+        <span>{label}</span>
+        <strong>{formatNumber(value)} tokens</strong>
+        <em>{formatCurrency(cost)}</em>
+      </div>
+      <div className="barTrack"><span style={{ width }} /></div>
+    </div>
+  );
+}
+
+function OptimiserMetric({ label, value }: { label: string; value: string }) {
+  return <div className="optimiserMetric"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function CostRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return <div className={strong ? "costRow strong" : "costRow"}><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function InstallView({ data, copy }: { data: ControlRoomPayload; copy: (value: string, label: string) => Promise<void> }) {
+  const config = data.installConfigs.universal ?? "";
   return (
     <section className="installPage">
       <div className="pageHeader">
@@ -684,16 +885,6 @@ function InstallView({ data, copy, refresh }: { data: ControlRoomPayload; copy: 
           <span>Gateway URL</span>
           <strong>{data.gatewayUrl}</strong>
         </div>
-        {ownerInstall && (
-          <div className="installStatus">
-            <div>
-              <span>Install approval</span>
-              <strong>{ownerInstall.approvalStatus.replace("_", " ")}</strong>
-              <small>{ownerInstall.approvalId ? `Approval ${ownerInstall.approvalId}` : `Token ${ownerInstall.tokenPreview}`}</small>
-            </div>
-            <button onClick={disconnectInstall}><RefreshCw size={16} />Disconnect / replay approval</button>
-          </div>
-        )}
         <pre>{config}</pre>
       </div>
     </section>
@@ -793,7 +984,8 @@ function MetricNumber({ label, value }: { label: string; value: number }) {
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status === "allowed" ? "success" : status === "blocked" ? "denied" : status;
-  return <span className={`statusBadge ${normalized}`}>{normalized.replace("_", " ")}</span>;
+  const label = normalized === "optimised" ? "Optimised" : normalized.replace("_", " ");
+  return <span className={`statusBadge ${normalized}`}>{label}</span>;
 }
 
 function PolicyPill({ value, prefix }: { value: UiDecision; prefix?: string }) {
@@ -814,6 +1006,18 @@ function policyColor(value: UiDecision) {
 function policyLabel(value: UiDecision) {
   if (value === "require_approval") return "Approval";
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function formatCurrency(value: number) {
+  return `$${value.toFixed(2)}`;
+}
+
+function formatCompactTokens(value: number) {
+  return `${(value / 1000).toFixed(value >= 10000 ? 1 : 1)}k`;
 }
 
 function timeAgo(value: string) {

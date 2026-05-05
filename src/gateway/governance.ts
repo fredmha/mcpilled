@@ -70,12 +70,20 @@ const defaultPolicies: PolicyRule[] = [
     reason: "Interns cannot access customer CRM data."
   },
   {
-    id: "team-interns-deny-supabase-db",
+    id: "team-interns-deny-prod-db",
     scope: "team",
     subjectId: "interns",
-    tool: "supabase_db.query",
+    tool: "prod_db.query",
     decision: "deny",
-    reason: "Interns cannot query Supabase production customer data."
+    reason: "Interns cannot query production customer data."
+  },
+  {
+    id: "team-interns-approval-canva",
+    scope: "team",
+    subjectId: "interns",
+    tool: "canva_ai.create_client_portal_asset",
+    decision: "approval",
+    reason: "Canva AI can be approved for safe creative generation."
   },
   {
     id: "team-interns-allow-brand-assets",
@@ -224,7 +232,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     createdAt: new Date().toISOString(),
     requestedServers: [...new Set(requestedTools.map((tool) => tool.server))],
     requestedTools,
-    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, Supabase prod DB, and the Brand Kit MCP.`
+    summary: `Lovable wants to create a custom client portal for ${clientName} using HubSpot, prod DB, and Canva AI.`
   };
   approvals.push(request);
   await writeApprovals(approvals);
@@ -236,79 +244,7 @@ export async function queueWorkflowApproval(actor: ActorContext, input: Record<s
     status: "pending",
     policyTrace: trace,
     approvalId: request.id,
-    reason: "Queued bundled approval for HubSpot, Supabase prod DB, and Brand Kit MCP."
-  });
-  return request;
-}
-
-export async function queueInstallApproval(input: {
-  installProfileId: string;
-  installProfileName: string;
-  tokenPreview: string;
-  clientName: string;
-  method: string;
-  existingApprovalId?: string;
-}) {
-  const approvals = await readApprovals();
-  const existing = input.existingApprovalId ? approvals.find((approval) => approval.id === input.existingApprovalId) : undefined;
-  if (existing && existing.status === "pending") {
-    return existing;
-  }
-  const request: ApprovalRequest = {
-    id: nanoid(),
-    userId: "install",
-    teamId: "security",
-    requester: input.installProfileName,
-    requesterName: `${input.clientName} MCP install`,
-    requesterTeam: "security",
-    source: input.clientName,
-    tool: "gateway.install",
-    input: {
-      installProfileId: input.installProfileId,
-      installProfileName: input.installProfileName,
-      tokenPreview: input.tokenPreview,
-      clientName: input.clientName,
-      firstMethod: input.method
-    },
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    requestedServers: ["hubspot", "supabase_db", "brand_assets"],
-    requestedTools: [
-      {
-        server: "hubspot",
-        tool: "hubspot.search_contacts",
-        reason: "Default Lovable install policy blocks CRM contact access.",
-        flagReason: "HubSpot contains customer CRM records and contact details.",
-        currentPolicy: "deny"
-      },
-      {
-        server: "supabase_db",
-        tool: "supabase_db.query",
-        reason: "Default Lovable install policy blocks production database access.",
-        flagReason: "Supabase production database contains customer-sensitive data.",
-        currentPolicy: "deny"
-      },
-      {
-        server: "brand_assets",
-        tool: "brand_assets.get_brand_kit",
-        reason: "Default Lovable install policy allows approved brand kit context.",
-        flagReason: "Brand assets are approved design context and do not expose customer records.",
-        currentPolicy: "allow"
-      }
-    ],
-    summary: `${input.clientName} connected to the MCP Gateway. Approve this install to let Lovable list and call permitted tools.`
-  };
-  approvals.push(request);
-  await writeApprovals(approvals);
-  await writeAudit({
-    user: "install",
-    team: "security",
-    tool: "gateway.install",
-    input: request.input,
-    status: "pending",
-    policyTrace: ["install:first-request", "install:approval-required"],
-    approvalId: request.id,
-    reason: "Queued install approval before exposing MCP tools."
+    reason: "Queued bundled approval for HubSpot, prod DB, and Canva AI."
   });
   return request;
 }

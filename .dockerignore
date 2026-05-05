@@ -1,9 +1,0 @@
-node_modules
-dist
-data
-data-demo-run
-.git
-.env
-server.log
-server.err.log
-npm-debug.log

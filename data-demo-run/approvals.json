@@ -1,0 +1,26 @@
+[
+  {
+    "id": "7W4V-Rplv3kIfZ9etdyih",
+    "userId": "alice",
+    "teamId": "engineering",
+    "tool": "github.create_issue",
+    "input": {
+      "owner": "acme",
+      "repo": "demo-api",
+      "title": "Approval demo issue",
+      "body": "Queued for admin review."
+    },
+    "status": "approved",
+    "createdAt": "2026-05-02T01:17:29.749Z",
+    "decidedAt": "2026-05-02T01:17:29.853Z",
+    "decidedBy": "admin",
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"source\": \"mock-github-mcp\",\n  \"action\": \"create_issue\",\n  \"issue\": {\n    \"id\": \"ISSUE-monnjiik\",\n    \"owner\": \"acme\",\n    \"repo\": \"demo-api\",\n    \"title\": \"Approval demo issue\",\n    \"body\": \"Queued for admin review.\",\n    \"url\": \"https://github.example/acme/demo-api/issues/101\"\n  }\n}"
+        }
+      ]
+    }
+  }
+]
