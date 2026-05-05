@@ -23,21 +23,25 @@ export async function loadConfig(): Promise<{ config: GatewayConfig; apiKey: str
     const existing = await readState<GatewayConfig>("gateway-config");
     if (existing) {
       const config = migrateConfig(existing);
+      applyRuntimeGatewayPort(config);
       await saveConfig(config);
       return { config, apiKey: process.env.MCP_GATEWAY_API_KEY ?? "" };
     }
     const created = createDefaultConfig();
+    applyRuntimeGatewayPort(created.config);
     await saveConfig(created.config);
     return created;
   }
   await mkdir(dirname(configPath), { recursive: true });
   try {
     const config = migrateConfig(JSON.parse(await readFile(configPath, "utf8")) as GatewayConfig);
+    applyRuntimeGatewayPort(config);
     await saveConfig(config);
     const apiKey = process.env.MCP_GATEWAY_API_KEY ?? "";
     return { config, apiKey };
   } catch {
     const { config, apiKey } = createDefaultConfig();
+    applyRuntimeGatewayPort(config);
     await saveConfig(config);
     return { config, apiKey };
   }
@@ -156,6 +160,13 @@ function migrateConfig(config: GatewayConfig) {
     });
   }
   return config;
+}
+
+function applyRuntimeGatewayPort(config: GatewayConfig) {
+  const runtimePort = Number(process.env.MCP_GATEWAY_PORT ?? process.env.PORT);
+  if (Number.isFinite(runtimePort) && runtimePort > 0) {
+    config.gateway.port = runtimePort;
+  }
 }
 
 function ensureDemoConnector(space: Space, connector: StoredConnector) {
