@@ -481,6 +481,7 @@ function ApprovalCard({ approval, submitToolDecisions, reject }: { approval: Con
   const approvedCount = Object.values(toolDecisions).filter((decision) => decision === "approve").length;
   const deniedCount = Object.values(toolDecisions).filter((decision) => decision === "deny").length;
   const allReviewed = requestedTools.every((tool) => toolDecisions[tool.tool]);
+  const isSingleToolApproval = requestedTools.length === 1;
 
   function toggleTool(toolName: string, decision: ToolDecision) {
     setToolDecisions((current) => {
@@ -492,6 +493,13 @@ function ApprovalCard({ approval, submitToolDecisions, reject }: { approval: Con
       }
       return next;
     });
+  }
+
+  async function handleToolAction(toolName: string, decision: ToolDecision) {
+    toggleTool(toolName, decision);
+    if (isSingleToolApproval) {
+      await submitToolDecisions(approval.id, { [toolName]: decision });
+    }
   }
 
   return (
@@ -516,10 +524,10 @@ function ApprovalCard({ approval, submitToolDecisions, reject }: { approval: Con
             <span>{item.reason}</span>
             <small>{item.flagReason}</small>
             <div className="toolDecisionButtons">
-              <button className={toolDecisions[item.tool] === "approve" ? "approved" : ""} onClick={() => toggleTool(item.tool, "approve")}>
+              <button className={toolDecisions[item.tool] === "approve" ? "approved" : ""} onClick={() => void handleToolAction(item.tool, "approve")}>
                 {toolDecisions[item.tool] === "approve" ? "Approved" : "Approve"}
               </button>
-              <button className={toolDecisions[item.tool] === "deny" ? "denied" : ""} onClick={() => toggleTool(item.tool, "deny")}>
+              <button className={toolDecisions[item.tool] === "deny" ? "denied" : ""} onClick={() => void handleToolAction(item.tool, "deny")}>
                 {toolDecisions[item.tool] === "deny" ? "Denied" : "Deny"}
               </button>
             </div>
